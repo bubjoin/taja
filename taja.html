@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>타자연습 – 숫자 & 특수기호</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f5f7fa;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 30px;
+    max-width: 900px;
+    margin: auto;
+  }
+
+  #problem {
+    font-size: 32px;
+    font-weight: bold;
+    letter-spacing: 4px;
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    min-height: 60px;
+  }
+
+  #inputBox {
+    font-size: 28px;
+    padding: 10px;
+    border-radius: 10px;
+    border: 2px solid #777;
+    outline: none;
+  }
+
+  #keyboard {
+    display: grid;
+    grid-template-columns: repeat(14, 1fr);
+    gap: 5px;
+  }
+
+  .key {
+    padding: 10px 4px;
+    background: #ddd;
+    text-align: center;
+    border-radius: 6px;
+    font-size: 16px;
+    transition: 0.2s;
+  }
+
+  .active {
+    background: #ffcc00 !important;
+    color: black;
+    font-weight: bold;
+    box-shadow: 0 0 10px #ffcc00;
+  }
+
+  #stats span {
+    font-size: 20px;
+    margin-right: 15px;
+  }
+
+  button {
+    padding: 10px 20px;
+    font-size: 18px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    background: #4a90e2;
+    color: white;
+    margin-right: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h1>숫자 & 특수기호 타자연습</h1>
+
+<div>
+  <button onclick="setLevel(1)">1단계: 숫자</button>
+  <button onclick="setLevel(2)">2단계: 특수기호(좌측)</button>
+  <button onclick="setLevel(3)">3단계: 특수기호(우측)</button>
+  <button onclick="setLevel(4)">4단계: 숫자 + 특수 혼합</button>
+  <button onclick="setLevel(5)">5단계: Shift 조합</button>
+</div>
+
+<div id="problem">문제가 여기에 표시됩니다</div>
+
+<input id="inputBox" autocomplete="off" />
+
+<div id="stats">
+  <span id="accuracy">정확도:</span>
+  <span id="wpm">WPM:</span>
+  <span id="mistakes">오타:</span>
+</div>
+
+<h3>가상 키보드</h3>
+<div id="keyboard"></div>
+
+<script>
+/* ---------------- 키보드 구성 ---------------- */
+const keyLayout = [
+  "`", "1","2","3","4","5","6","7","8","9","0","-","=","\\",
+  "!", "@","#","$","%","^","&","*","(",")","_","+","|",
+  "[","]","{","}",";",":","'",'"',",",".","/","<",">","?"
+];
+
+const keyboard = document.getElementById("keyboard");
+keyLayout.forEach(k => {
+  const div = document.createElement("div");
+  div.className = "key";
+  div.dataset.key = k;
+  div.textContent = k;
+  keyboard.appendChild(div);
+});
+
+/* ---------------- 문자 풀 ---------------- */
+const pools = {
+  1: "0123456789",
+  2: "!@#$%^&*",
+  3: "()_-+=[]{};:'\",.<>/?\\|",
+  4: "0123456789!@#$%^&*()_-+=[]{};:'\",.<>/?\\|",
+  5: "!@#$%^&*()"
+};
+
+const problem = document.getElementById("problem");
+const inputBox = document.getElementById("inputBox");
+
+let currentLevel = 1;
+let startTime = null;
+let mistakes = 0;
+
+/* ---------------- 문제 생성 ---------------- */
+function generateSequence(chars, length = 12) {
+  let r = "";
+  for (let i = 0; i < length; i++) {
+    r += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return r;
+}
+
+function setLevel(lv) {
+  currentLevel = lv;
+  problem.textContent = generateSequence(pools[lv], 14);
+  inputBox.value = "";
+  inputBox.focus();
+  startTime = null;
+  mistakes = 0;
+  highlightKey(problem.textContent[0]);
+}
+
+/* ---------------- 키 하이라이트 ---------------- */
+function highlightKey(char) {
+  document.querySelectorAll(".key").forEach(k => k.classList.remove("active"));
+  const key = document.querySelector(`.key[data-key="${char}"]`);
+  if (key) key.classList.add("active");
+}
+
+/* ---------------- 입력 처리 ---------------- */
+inputBox.addEventListener("input", () => {
+  if (!startTime) startTime = performance.now();
+
+  const typed = inputBox.value;
+  const target = problem.textContent;
+
+  mistakes = 0;
+  for (let i = 0; i < typed.length; i++) {
+    if (typed[i] !== target[i]) mistakes++;
+  }
+
+  highlightKey(target[typed.length] || "");
+
+  if (typed.length === target.length) {
+    const end = performance.now();
+    const sec = (end - startTime) / 1000;
+    const wpm = Math.round((typed.length / 5) / (sec / 60));
+    const acc = Math.round(((typed.length - mistakes) / typed.length) * 100);
+
+    document.getElementById("accuracy").textContent = `정확도: ${acc}%`;
+    document.getElementById("wpm").textContent = `WPM: ${wpm}`;
+    document.getElementById("mistakes").textContent = `오타: ${mistakes}개`;
+
+    problem.textContent = generateSequence(pools[currentLevel], 14);
+    inputBox.value = "";
+    startTime = null;
+    highlightKey(problem.textContent[0]);
+  }
+});
+
+setLevel(1); // 시작 시 1단계
+</script>
+
+</body>
+</html>
