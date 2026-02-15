@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>네온 타자: 트레이닝 센터</title>
+<style>
+  :root {
+    --bg-color: #0f0f1b; --card-bg: #1a1a2e; --text-color: #00d2ff;
+    --accent-color: #3a47d5; --correct-color: #00ff88; --wrong-color: #ff4757;
+    --guide-color: #fbc531;
+  }
+  body { font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+  
+  /* 트레이닝 단계 네비게이션 */
+  .training-nav { display: flex; gap: 10px; margin-bottom: 30px; background: var(--card-bg); padding: 15px; border-radius: 15px; border: 1px solid var(--accent-color); }
+  .step-btn { padding: 10px 15px; border: 1px solid #444; background: none; color: #888; border-radius: 5px; cursor: pointer; font-size: 0.9rem; }
+  .step-btn.active { background: var(--accent-color); color: white; border-color: var(--text-color); box-shadow: 0 0 10px var(--text-color); }
+  .step-btn.locked { opacity: 0.3; cursor: not-allowed; }
+
+  /* 메인 디스플레이 */
+  #display-panel { width: 80%; max-width: 700px; background: var(--card-bg); padding: 40px; border-radius: 20px; text-align: center; margin-bottom: 20px; border-bottom: 5px solid var(--accent-color); }
+  #instruction { font-size: 1.2rem; color: var(--guide-color); margin-bottom: 20px; height: 1.5rem; }
+  #target-area { font-size: 4rem; font-weight: bold; letter-spacing: 15px; min-height: 100px; display: flex; justify-content: center; align-items: center; }
+  
+  .char { position: relative; transition: 0.2s; color: #444; }
+  .char.active { color: #fff; text-shadow: 0 0 20px #fff; transform: scale(1.2); }
+  .char.correct { color: var(--correct-color); }
+  .char.wrong { color: var(--wrong-color); animation: shake 0.2s; }
+
+  /* 손가락 가이드 비주얼 */
+  #hand-visualizer { display: flex; gap: 40px; margin-top: 20px; opacity: 0.8; }
+  .hand { font-size: 0.9rem; color: #aaa; text-align: center; padding: 10px; border: 1px solid #333; border-radius: 10px; }
+  .highlight-hand { border-color: var(--text-color); color: var(--text-color); box-shadow: 0 0 10px var(--text-color); }
+
+  #inputBox { opacity: 0; position: absolute; }
+  
+  @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+</style>
+</head>
+<body onclick="document.getElementById('inputBox').focus()">
+
+<h1 style="color: var(--text-color); text-shadow: 0 0 10px var(--text-color);">FINGER PLACEMENT MASTER</h1>
+
+<div class="training-nav" id="nav">
+  <button class="step-btn active" onclick="loadStep(1)">STEP 1: 검지(4,5,6,7)</button>
+  <button class="step-btn" onclick="loadStep(2)">STEP 2: 중지(3,8)</button>
+  <button class="step-btn" onclick="loadStep(3)">STEP 3: 약지(2,9)</button>
+  <button class="step-btn" onclick="loadStep(4)">STEP 4: 새끼(1,0)</button>
+  <button class="step-btn" onclick="loadStep(5)">STEP 5: 전체 통합</button>
+</div>
+
+<div id="display-panel">
+  <div id="instruction">준비되셨나요?</div>
+  <div id="target-area"></div>
+  
+  <div id="hand-visualizer">
+    <div id="left-hand" class="hand">왼손 가이드</div>
+    <div id="right-hand" class="hand">오른손 가이드</div>
+  </div>
+</div>
+
+<div id="progress" style="width: 80%; max-width: 700px; height: 10px; background: #333; border-radius: 5px; margin-bottom: 20px;">
+  <div id="progress-bar" style="width: 0%; height: 100%; background: var(--correct-color); border-radius: 5px; transition: 0.3s;"></div>
+</div>
+
+<input id="inputBox" autocomplete="off" autofocus />
+
+<script>
+  // 인지심리학적 커리큘럼 데이터
+  const steps = {
+    1: { name: "검지 훈련", patterns: ["f4f", "f5f", "j6j", "j7j", "45", "67", "f5j6"], 
+         desc: "기준점(F, J)에서 검지를 대각선 위로 뻗으세요.", finger: "검지" },
+    2: { name: "중지 훈련", patterns: ["d3d", "k8k", "38", "d3k8"], 
+         desc: "중지를 위로 뻗어 3과 8을 터치하고 돌아오세요.", finger: "중지" },
+    3: { name: "약지 훈련", patterns: ["s2s", "l9l", "29", "s2l9"], 
+         desc: "약지는 가장 움직이기 어렵습니다. 천천히 2와 9를 찾으세요.", finger: "약지" },
+    4: { name: "새끼 훈련", patterns: ["a1a", ";0;", "10", "a1;0"], 
+         desc: "가장 끝에 있는 1과 0입니다. 손목을 너무 틀지 마세요.", finger: "새끼" },
+    5: { name: "통합 훈련", patterns: ["12345", "67890", "13579", "24680", "0987654321"], 
+         desc: "이제 모든 손가락을 사용하여 숫자를 정복하세요!", finger: "전체" }
+  };
+
+  const fingerGuide = {
+    '1':'왼손 새끼', '2':'왼손 약지', '3':'왼손 중지', '4':'왼손 검지', '5':'왼손 검지',
+    '6':'오른손 검지', '7':'오른손 검지', '8':'오른손 중지', '9':'오른손 약지', '0':'오른손 새끼',
+    'f':'왼손 검지 돌기', 'j':'오른손 검지 돌기', 'd':'왼손 중지', 'k':'오른손 중지',
+    's':'왼손 약지', 'l':'오른손 약지', 'a':'왼손 새끼', ';':'오른손 새끼'
+  };
+
+  let currentStep = 1;
+  let patternIndex = 0;
+  let charIndex = 0;
+  let currentPatterns = [];
+  let successCount = 0;
+
+  function loadStep(stepNum) {
+    currentStep = stepNum;
+    patternIndex = 0;
+    charIndex = 0;
+    successCount = 0;
+    currentPatterns = steps[stepNum].patterns;
+    
+    document.querySelectorAll('.step-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', i + 1 === stepNum);
+    });
+    
+    startPattern();
+  }
+
+  function startPattern() {
+    if (patternIndex >= currentPatterns.length) {
+      alert(`${steps[currentStep].name} 완료! 다음 단계로 넘어가세요.`);
+      if (currentStep < 5) loadStep(currentStep + 1);
+      return;
+    }
+    
+    renderTarget();
+    updateVisuals();
+  }
+
+  function renderTarget() {
+    const targetArea = document.getElementById('target-area');
+    const pattern = currentPatterns[patternIndex];
+    targetArea.innerHTML = '';
+    
+    [...pattern].forEach((char, i) => {
+      const span = document.createElement('span');
+      span.textContent = char;
+      span.className = 'char';
+      if (i === charIndex) span.classList.add('active');
+      if (i < charIndex) span.classList.add('correct');
+      targetArea.appendChild(span);
+    });
+    
+    document.getElementById('instruction').textContent = steps[currentStep].desc;
+  }
+
+  function updateVisuals() {
+    const currentChar = currentPatterns[patternIndex][charIndex].toLowerCase();
+    const guideText = fingerGuide[currentChar] || "자유롭게";
+    
+    const leftHand = document.getElementById('left-hand');
+    const rightHand = document.getElementById('right-hand');
+    
+    leftHand.classList.toggle('highlight-hand', guideText.includes('왼손'));
+    rightHand.classList.toggle('highlight-hand', guideText.includes('오른손'));
+    
+    leftHand.textContent = guideText.includes('왼손') ? guideText : "대기";
+    rightHand.textContent = guideText.includes('오른손') ? guideText : "대기";
+    
+    const progress = (successCount / (currentPatterns.length * 3)) * 100; // 대략적인 계산
+    document.getElementById('progress-bar').style.width = `${Math.min(progress, 100)}%`;
+  }
+
+  document.getElementById('inputBox').addEventListener('input', (e) => {
+    const typed = e.target.value.slice(-1).toLowerCase();
+    const target = currentPatterns[patternIndex][charIndex].toLowerCase();
+    
+    if (typed === target) {
+      charIndex++;
+      successCount++;
+      if (charIndex >= currentPatterns[patternIndex].length) {
+        charIndex = 0;
+        patternIndex++;
+      }
+      startPattern();
+    } else {
+      const charElems = document.querySelectorAll('.char');
+      charElems[charIndex].classList.add('wrong');
+      setTimeout(() => charElems[charIndex].classList.remove('wrong'), 200);
+    }
+    e.target.value = '';
+  });
+
+  loadStep(1);
+</script>
+</body>
+</html>

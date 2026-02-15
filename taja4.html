@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>네온 타자 마스터: 레벨업 에디션</title>
+<style>
+  :root {
+    --bg-color: #1a1a2e;
+    --card-bg: #16213e;
+    --text-color: #e94560;
+    --accent-color: #0f3460;
+    --correct-color: #4cd137;
+    --wrong-color: #e84118;
+    --key-default: #2f3640;
+    --timer-color: #fbc531;
+    --locked-color: #444;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg-color); color: #fff;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 20px; margin: 0; min-height: 100vh;
+  }
+
+  /* 상단 설정 바 */
+  .settings-bar {
+    display: flex; gap: 20px; align-items: center; margin-bottom: 20px;
+    background: rgba(255,255,255,0.05); padding: 10px 25px; border-radius: 10px;
+  }
+  .settings-bar input {
+    width: 50px; background: var(--accent-color); border: 1px solid var(--text-color);
+    color: white; padding: 5px; text-align: center; border-radius: 5px;
+  }
+
+  #timer-container { font-size: 2rem; font-weight: bold; color: var(--timer-color); margin-bottom: 10px; }
+  .low-time { color: var(--wrong-color) !important; animation: pulse 0.5s infinite; }
+
+  /* 레벨 버튼 및 잠금 상태 */
+  .level-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
+  button {
+    padding: 10px 18px; border: none; border-radius: 8px; background: var(--accent-color);
+    color: white; cursor: pointer; transition: 0.2s; font-weight: bold;
+  }
+  button:disabled { background: var(--locked-color); cursor: not-allowed; color: #777; opacity: 0.6; }
+  button.active-lv { background: var(--text-color); box-shadow: 0 0 15px var(--text-color); }
+  
+  #goal-display { margin-bottom: 15px; color: #aaa; font-size: 0.9rem; }
+  #goal-display span { color: var(--timer-color); font-weight: bold; }
+
+  #problem-container {
+    font-size: 38px; font-weight: bold; letter-spacing: 5px; padding: 30px;
+    background: var(--card-bg); border-radius: 15px; margin-bottom: 25px;
+    position: relative; width: 85%; max-width: 800px; text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+
+  .char { color: #555; }
+  .char.correct { color: var(--correct-color); text-shadow: 0 0 8px var(--correct-color); }
+  .char.wrong { color: var(--wrong-color); background: rgba(232, 65, 24, 0.2); }
+  .char.current { border-bottom: 3px solid #fff; }
+
+  #inputBox { opacity: 0; position: absolute; z-index: -1; }
+
+  #stats { display: flex; gap: 40px; margin-top: 10px; background: var(--card-bg); padding: 15px 40px; border-radius: 50px; }
+  .stat-label { font-size: 11px; color: #888; display: block; margin-bottom: 4px; }
+  .stat-value { font-size: 22px; font-weight: bold; }
+
+  #overlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.9); z-index: 100; flex-direction: column; align-items: center; justify-content: center;
+  }
+  #result-card { background: var(--card-bg); padding: 50px; border-radius: 20px; text-align: center; border: 2px solid var(--text-color); }
+  
+  .success-msg { color: var(--correct-color); font-weight: bold; margin-bottom: 15px; }
+  .fail-msg { color: var(--wrong-color); font-weight: bold; margin-bottom: 15px; }
+
+  @keyframes pulse { 50% { opacity: 0.5; } }
+  .shake { animation: shake 0.2s; }
+  @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+</style>
+</head>
+<body onclick="document.getElementById('inputBox').focus()">
+
+<div class="settings-bar">
+  <span>⏱ 제한 시간(초): <input type="number" id="timeConfig" value="30" min="5" max="300"></span>
+  <span id="goal-info">목표: <span id="target-wpm-label">0</span> WPM</span>
+</div>
+
+<div id="timer-container">TIME: <span id="timer">30</span>s</div>
+
+<div class="level-buttons">
+  <button onclick="setLevel(1)" id="btn1">Lv.1</button>
+  <button onclick="setLevel(2)" id="btn2" disabled>Lv.2</button>
+  <button onclick="setLevel(3)" id="btn3" disabled>Lv.3</button>
+  <button onclick="setLevel(4)" id="btn4" disabled>Lv.4</button>
+  <button onclick="setLevel(5)" id="btn5" disabled>Lv.5</button>
+</div>
+
+<div id="problem-container">
+  <div id="problem-display"></div>
+</div>
+
+<input id="inputBox" autocomplete="off" autofocus />
+
+<div id="stats">
+  <div class="stat-item"><span class="stat-label">ACCURACY</span><span id="accuracy" class="stat-value">0%</span></div>
+  <div class="stat-item"><span class="stat-label">WPM</span><span id="wpm" class="stat-value">0</span></div>
+  <div class="stat-item"><span class="stat-label">MISTAKES</span><span id="mistakes" class="stat-value">0</span></div>
+</div>
+
+<div id="overlay">
+  <div id="result-card">
+    <h2 id="result-title">TIME UP!</h2>
+    <div id="result-msg"></div>
+    <p id="final-stats"></p>
+    <div style="display:flex; gap:10px; justify-content:center;">
+      <button onclick="restartGame()">다시 도전</button>
+      <button id="nextLevelBtn" onclick="goToNextLevel()" style="display:none; background: var(--correct-color);">다음 단계로!</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const pools = { 
+  1: { chars: "0123456789", goal: 40 }, 
+  2: { chars: "!@#$%^&*", goal: 35 }, 
+  3: { chars: "()_-+=[]{};:'\",.<>/?\\|", goal: 30 }, 
+  4: { chars: "0123456789!@#$%^&*()_-+=[]{};:'\",.<>/?\\|", goal: 35 }, 
+  5: { chars: "!@#$%^&*()", goal: 25 } 
+};
+
+let currentLevel = 1;
+let unlockedLevel = 1;
+let timeLeft = 30;
+let duration = 30;
+let timerId = null;
+let isPlaying = false;
+let totalTyped = 0;
+let totalMistakes = 0;
+let currentIndex = 0;
+let targetText = "";
+
+function setLevel(lv) {
+  if (lv > unlockedLevel) return;
+  currentLevel = lv;
+  document.querySelectorAll(".level-buttons button").forEach((b, idx) => {
+    b.classList.toggle("active-lv", idx + 1 === lv);
+    b.disabled = (idx + 1 > unlockedLevel);
+  });
+  document.getElementById("target-wpm-label").textContent = pools[lv].goal;
+  restartGame();
+}
+
+function restartGame() {
+  clearInterval(timerId);
+  document.getElementById("overlay").style.display = "none";
+  isPlaying = false;
+  duration = parseInt(document.getElementById("timeConfig").value) || 30;
+  timeLeft = duration;
+  totalTyped = 0;
+  totalMistakes = 0;
+  currentIndex = 0;
+  inputBox.value = "";
+  document.getElementById("timer").textContent = timeLeft;
+  document.getElementById("timer").parentElement.classList.remove("low-time");
+  updateStatsDisplay(0, 0, 0);
+  nextSentence();
+}
+
+function nextSentence() {
+  const chars = pools[currentLevel].chars;
+  targetText = "";
+  for (let i = 0; i < 12; i++) targetText += chars[Math.floor(Math.random() * chars.length)];
+  currentIndex = 0;
+  renderProblem();
+}
+
+function renderProblem() {
+  const display = document.getElementById("problem-display");
+  display.innerHTML = "";
+  [...targetText].forEach((char, i) => {
+    const span = document.createElement("span");
+    span.textContent = char; span.className = "char";
+    if (i === currentIndex) span.classList.add("current");
+    display.appendChild(span);
+  });
+}
+
+const inputBox = document.getElementById("inputBox");
+inputBox.addEventListener("input", (e) => {
+  if (!isPlaying && timeLeft > 0) {
+    startTimer();
+    isPlaying = true;
+  }
+  if (timeLeft <= 0) return;
+
+  const typedChar = e.target.value.slice(-1);
+  const targetChar = targetText[currentIndex];
+  const charElements = document.querySelectorAll(".char");
+
+  if (typedChar === targetChar) {
+    charElements[currentIndex].className = "char correct";
+    currentIndex++;
+    totalTyped++;
+  } else {
+    totalMistakes++;
+    charElements[currentIndex].classList.add("wrong");
+    document.getElementById("problem-container").classList.add("shake");
+    setTimeout(() => document.getElementById("problem-container").classList.remove("shake"), 200);
+  }
+
+  if (currentIndex < targetText.length) {
+    charElements[currentIndex].classList.add("current");
+  } else {
+    nextSentence();
+  }
+  e.target.value = "";
+  
+  const acc = totalTyped === 0 ? 0 : Math.round(((totalTyped - totalMistakes) / totalTyped) * 100);
+  document.getElementById("accuracy").textContent = Math.max(0, acc) + "%";
+});
+
+function startTimer() {
+  timerId = setInterval(() => {
+    timeLeft--;
+    document.getElementById("timer").textContent = timeLeft;
+    if (timeLeft <= 5) document.getElementById("timer").parentElement.classList.add("low-time");
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function endGame() {
+  clearInterval(timerId);
+  isPlaying = false;
+  
+  const acc = totalTyped === 0 ? 0 : Math.round(((totalTyped - totalMistakes) / totalTyped) * 100);
+  const wpm = Math.round((totalTyped / 5) / (duration / 60));
+  const goalWpm = pools[currentLevel].goal;
+  
+  const overlay = document.getElementById("overlay");
+  const resultMsg = document.getElementById("result-msg");
+  const nextBtn = document.getElementById("nextLevelBtn");
+  
+  overlay.style.display = "flex";
+  document.getElementById("wpm").textContent = wpm;
+  document.getElementById("accuracy").textContent = acc + "%";
+  document.getElementById("mistakes").textContent = totalMistakes;
+
+  let isSuccess = (wpm >= goalWpm && acc >= 90);
+  
+  if (isSuccess) {
+    resultMsg.innerHTML = `<div class="success-msg">MISSION COMPLETE! 🎉</div>`;
+    if (currentLevel === unlockedLevel && unlockedLevel < 5) {
+      unlockedLevel++;
+      nextBtn.style.display = "block";
+    } else if (unlockedLevel > currentLevel) {
+       nextBtn.style.display = "block";
+    } else {
+       nextBtn.style.display = "none";
+    }
+  } else {
+    resultMsg.innerHTML = `<div class="fail-msg">GOAL FAILED... 😢</div>
+                           <small>(정확도 90% & ${goalWpm} WPM 이상 필요)</small>`;
+    nextBtn.style.display = "none";
+  }
+
+  document.getElementById("final-stats").innerHTML = `
+    기록: <strong>${wpm} WPM</strong> | 정확도: <strong>${acc}%</strong><br>
+    오타: <strong>${totalMistakes}개</strong>
+  `;
+}
+
+function goToNextLevel() {
+  setLevel(currentLevel + 1);
+}
+
+function updateStatsDisplay(acc, wpm, mis) {
+  document.getElementById("accuracy").textContent = acc + "%";
+  document.getElementById("wpm").textContent = wpm;
+  document.getElementById("mistakes").textContent = mis;
+}
+
+setLevel(1);
+</script>
+</body>
+</html>

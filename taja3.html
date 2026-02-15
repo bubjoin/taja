@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>네온 타자 마스터: 타임어택</title>
+<style>
+  :root {
+    --bg-color: #1a1a2e;
+    --card-bg: #16213e;
+    --text-color: #e94560;
+    --accent-color: #0f3460;
+    --correct-color: #4cd137;
+    --wrong-color: #e84118;
+    --key-default: #2f3640;
+    --timer-color: #fbc531;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg-color);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    margin: 0;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* 타이머 스타일 */
+  #timer-container {
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--timer-color);
+    margin-bottom: 10px;
+    text-shadow: 0 0 15px var(--timer-color);
+  }
+  .low-time { color: var(--wrong-color) !important; animation: pulse 0.5s infinite; }
+
+  @keyframes pulse { 50% { opacity: 0.5; } }
+
+  .level-buttons { margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  button {
+    padding: 8px 15px; border: none; border-radius: 5px; background: var(--accent-color);
+    color: white; cursor: pointer; transition: 0.2s;
+  }
+  button:hover { background: var(--text-color); }
+  button.active-lv { background: var(--text-color); box-shadow: 0 0 10px var(--text-color); }
+
+  #problem-container {
+    font-size: 38px; font-weight: bold; letter-spacing: 5px; padding: 25px;
+    background: var(--card-bg); border-radius: 15px; margin-bottom: 20px;
+    position: relative; width: 85%; max-width: 800px; text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+
+  .char { position: relative; color: #555; }
+  .char.correct { color: var(--correct-color); text-shadow: 0 0 8px var(--correct-color); }
+  .char.wrong { color: var(--wrong-color); background: rgba(232, 65, 24, 0.2); }
+  .char.current { border-bottom: 3px solid #fff; }
+
+  #inputBox { opacity: 0; position: absolute; z-index: -1; }
+
+  #keyboard {
+    display: grid; grid-template-columns: repeat(14, 1fr); gap: 5px;
+    width: 100%; max-width: 800px; background: rgba(0,0,0,0.2);
+    padding: 15px; border-radius: 10px;
+  }
+  .key { padding: 12px 0; background: var(--key-default); text-align: center; border-radius: 6px; font-size: 13px; color: #888; transition: 0.1s; }
+  .key.active { background: var(--text-color) !important; color: white !important; transform: scale(0.95); box-shadow: 0 0 15px var(--text-color); }
+
+  #stats { display: flex; gap: 30px; margin-top: 20px; background: var(--card-bg); padding: 10px 30px; border-radius: 50px; }
+  .stat-label { font-size: 12px; color: #888; display: block; }
+  .stat-value { font-size: 18px; font-weight: bold; }
+
+  /* 결과 팝업 */
+  #overlay {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+    z-index: 100; flex-direction: column; align-items: center; justify-content: center;
+  }
+  #result-card {
+    background: var(--card-bg); padding: 40px; border-radius: 20px; text-align: center;
+    border: 2px solid var(--text-color); box-shadow: 0 0 20px var(--text-color);
+  }
+  #result-card h2 { color: var(--text-color); font-size: 2.5rem; margin-top: 0; }
+  
+  .shake { animation: shake 0.2s ease-in-out; }
+  @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+</style>
+</head>
+<body onclick="document.getElementById('inputBox').focus()">
+
+<div id="timer-container">TIME: <span id="timer">30</span>s</div>
+
+<div class="level-buttons" id="lvBtns">
+  <button onclick="setLevel(1)" id="btn1">Lv.1 숫자</button>
+  <button onclick="setLevel(2)" id="btn2">Lv.2 기호(L)</button>
+  <button onclick="setLevel(3)" id="btn3">Lv.3 기호(R)</button>
+  <button onclick="setLevel(4)" id="btn4">Lv.4 혼합</button>
+  <button onclick="setLevel(5)" id="btn5">Lv.5 Shift</button>
+</div>
+
+<div id="problem-container">
+  <div id="problem-display"></div>
+</div>
+
+<input id="inputBox" autocomplete="off" autofocus />
+
+<div id="stats">
+  <div class="stat-item"><span class="stat-label">ACCURACY</span><span id="accuracy" class="stat-value">0%</span></div>
+  <div class="stat-item"><span class="stat-label">WPM</span><span id="wpm" class="stat-value">0</span></div>
+  <div class="stat-item"><span class="stat-label">MISTAKES</span><span id="mistakes" class="stat-value">0</span></div>
+</div>
+
+<div id="keyboard" style="margin-top:20px;"></div>
+
+<div id="overlay">
+  <div id="result-card">
+    <h2>TIME UP!</h2>
+    <p id="final-stats" style="font-size: 1.2rem; line-height: 1.6;"></p>
+    <button onclick="restartGame()" style="font-size:1.2rem; padding: 10px 30px; margin-top:20px;">다시 도전</button>
+  </div>
+</div>
+
+<script>
+const keyLayout = ["`","1","2","3","4","5","6","7","8","9","0","-","=","\\","!","@","#","$","%","^","&","*","(",")","_","+","|","[","]","{","}",";",":","'",'"',",",".","/","<",">","?"];
+const pools = { 1: "0123456789", 2: "!@#$%^&*", 3: "()_-+=[]{};:'\",.<>/?\\|", 4: "0123456789!@#$%^&*()_-+=[]{};:'\",.<>/?\\|", 5: "!@#$%^&*()" };
+
+const keyboard = document.getElementById("keyboard");
+keyLayout.forEach(k => {
+  const div = document.createElement("div");
+  div.className = "key"; div.dataset.key = k; div.textContent = k;
+  keyboard.appendChild(div);
+});
+
+let currentLevel = 1;
+let timeLeft = 30;
+let timerId = null;
+let isPlaying = false;
+let totalTyped = 0;
+let totalMistakes = 0;
+let currentIndex = 0;
+let targetText = "";
+
+function setLevel(lv) {
+  currentLevel = lv;
+  document.querySelectorAll(".level-buttons button").forEach(b => b.classList.remove("active-lv"));
+  document.getElementById("btn"+lv).classList.add("active-lv");
+  restartGame();
+}
+
+function restartGame() {
+  clearInterval(timerId);
+  document.getElementById("overlay").style.display = "none";
+  isPlaying = false;
+  timeLeft = 30;
+  totalTyped = 0;
+  totalMistakes = 0;
+  currentIndex = 0;
+  inputBox.value = "";
+  document.getElementById("timer").textContent = timeLeft;
+  document.getElementById("timer").parentElement.classList.remove("low-time");
+  updateStats(0, 0, 0);
+  nextSentence();
+}
+
+function nextSentence() {
+  targetText = "";
+  for (let i = 0; i < 12; i++) targetText += pools[currentLevel][Math.floor(Math.random() * pools[currentLevel].length)];
+  currentIndex = 0;
+  renderProblem();
+  highlightKey(targetText[0]);
+}
+
+function renderProblem() {
+  const display = document.getElementById("problem-display");
+  display.innerHTML = "";
+  [...targetText].forEach((char, i) => {
+    const span = document.createElement("span");
+    span.textContent = char; span.className = "char";
+    if (i === currentIndex) span.classList.add("current");
+    display.appendChild(span);
+  });
+}
+
+function highlightKey(char) {
+  document.querySelectorAll(".key").forEach(k => k.classList.remove("active"));
+  const key = document.querySelector(`.key[data-key="${char}"]`);
+  if (key) key.classList.add("active");
+}
+
+const inputBox = document.getElementById("inputBox");
+inputBox.addEventListener("input", (e) => {
+  if (!isPlaying && timeLeft > 0) {
+    startTimer();
+    isPlaying = true;
+  }
+  if (timeLeft <= 0) return;
+
+  const typedChar = e.target.value.slice(-1);
+  const targetChar = targetText[currentIndex];
+  const charElements = document.querySelectorAll(".char");
+
+  if (typedChar === targetChar) {
+    charElements[currentIndex].className = "char correct";
+    currentIndex++;
+    totalTyped++;
+  } else {
+    totalMistakes++;
+    charElements[currentIndex].classList.add("wrong");
+    document.getElementById("problem-container").classList.add("shake");
+    setTimeout(() => document.getElementById("problem-container").classList.remove("shake"), 200);
+  }
+
+  if (currentIndex < targetText.length) {
+    charElements[currentIndex].classList.add("current");
+    highlightKey(targetText[currentIndex]);
+  } else {
+    nextSentence();
+  }
+  e.target.value = "";
+  
+  // 실시간 점수 계산 (중간 확인용)
+  const acc = totalTyped === 0 ? 0 : Math.round(((totalTyped - totalMistakes) / totalTyped) * 100);
+  document.getElementById("accuracy").textContent = Math.max(0, acc) + "%";
+});
+
+function startTimer() {
+  timerId = setInterval(() => {
+    timeLeft--;
+    document.getElementById("timer").textContent = timeLeft;
+    if (timeLeft <= 10) document.getElementById("timer").parentElement.classList.add("low-time");
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function endGame() {
+  clearInterval(timerId);
+  isPlaying = false;
+  document.getElementById("overlay").style.display = "flex";
+  
+  const acc = totalTyped === 0 ? 0 : Math.round(((totalTyped - totalMistakes) / totalTyped) * 100);
+  const wpm = Math.round((totalTyped / 5) / (30 / 60)); // 30초 기준
+  
+  document.getElementById("wpm").textContent = wpm;
+  document.getElementById("accuracy").textContent = Math.max(0, acc) + "%";
+  document.getElementById("mistakes").textContent = totalMistakes;
+  
+  document.getElementById("final-stats").innerHTML = `
+    최종 속도: <strong>${wpm} WPM</strong><br>
+    정확도: <strong>${Math.max(0, acc)}%</strong><br>
+    오타 횟수: <strong>${totalMistakes}개</strong>
+  `;
+}
+
+function updateStats(acc, wpm, mis) {
+  document.getElementById("accuracy").textContent = acc + "%";
+  document.getElementById("wpm").textContent = wpm;
+  document.getElementById("mistakes").textContent = mis;
+}
+
+setLevel(1);
+</script>
+</body>
+</html>

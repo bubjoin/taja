@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>네온 타자 마스터 – 숫자 & 특수기호</title>
+<style>
+  :root {
+    --bg-color: #1a1a2e;
+    --card-bg: #16213e;
+    --text-color: #e94560;
+    --accent-color: #0f3460;
+    --correct-color: #4cd137;
+    --wrong-color: #e84118;
+    --key-default: #2f3640;
+  }
+
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--bg-color);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px;
+    margin: 0;
+    min-height: 100vh;
+  }
+
+  h1 { margin-bottom: 10px; color: var(--text-color); text-shadow: 0 0 10px var(--text-color); }
+
+  .level-buttons {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 5px;
+    background: var(--accent-color);
+    color: white;
+    cursor: pointer;
+    transition: 0.3s;
+  }
+
+  button:hover { background: var(--text-color); transform: translateY(-2px); }
+  button.active-lv { background: var(--text-color); box-shadow: 0 0 10px var(--text-color); }
+
+  /* 문제 출력 영역 개선 */
+  #problem-container {
+    font-size: 40px;
+    font-weight: bold;
+    letter-spacing: 5px;
+    padding: 30px;
+    background: var(--card-bg);
+    border-radius: 15px;
+    margin-bottom: 20px;
+    position: relative;
+    width: 80%;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+
+  .char { position: relative; display: inline-block; color: #555; }
+  .char.correct { color: var(--correct-color); text-shadow: 0 0 8px var(--correct-color); }
+  .char.wrong { color: var(--wrong-color); background: rgba(232, 65, 24, 0.2); border-radius: 4px; }
+  .char.current { border-bottom: 3px solid #fff; animation: blink 0.8s infinite; }
+
+  @keyframes blink { 50% { opacity: 0; } }
+
+  #inputBox {
+    opacity: 0; /* 실제 입력창은 숨기고 전체 화면에서 입력을 감지합니다 */
+    position: absolute;
+    z-index: -1;
+  }
+
+  /* 콤보 표시 */
+  #combo-float {
+    position: absolute;
+    right: -50px;
+    top: -20px;
+    font-size: 24px;
+    color: #fbc531;
+    font-style: italic;
+    opacity: 0;
+    transition: 0.2s;
+  }
+
+  /* 가상 키보드 */
+  #keyboard {
+    display: grid;
+    grid-template-columns: repeat(14, 1fr);
+    gap: 6px;
+    width: 100%;
+    max-width: 800px;
+    background: rgba(0,0,0,0.2);
+    padding: 15px;
+    border-radius: 10px;
+  }
+
+  .key {
+    padding: 12px 0;
+    background: var(--key-default);
+    text-align: center;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #888;
+    transition: 0.1s;
+  }
+
+  .key.active {
+    background: var(--text-color) !important;
+    color: white !important;
+    transform: scale(0.95);
+    box-shadow: 0 0 15px var(--text-color);
+  }
+
+  #stats {
+    display: flex;
+    gap: 30px;
+    margin-top: 20px;
+    background: var(--card-bg);
+    padding: 15px 40px;
+    border-radius: 50px;
+  }
+
+  .stat-item { text-align: center; }
+  .stat-label { font-size: 12px; color: #888; display: block; }
+  .stat-value { font-size: 20px; font-weight: bold; }
+
+  /* 애니메이션 효과 */
+  .shake { animation: shake 0.2s ease-in-out; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+</style>
+</head>
+<body onclick="document.getElementById('inputBox').focus()">
+
+<h1>NEON TYPING</h1>
+
+<div class="level-buttons" id="lvBtns">
+  <button onclick="setLevel(1)" id="btn1">Lv.1 숫자</button>
+  <button onclick="setLevel(2)" id="btn2">Lv.2 기호(Left)</button>
+  <button onclick="setLevel(3)" id="btn3">Lv.3 기호(Right)</button>
+  <button onclick="setLevel(4)" id="btn4">Lv.4 혼합</button>
+  <button onclick="setLevel(5)" id="btn5">Lv.5 Shift!!</button>
+</div>
+
+<div id="problem-container">
+  <div id="combo-float">0 COMBO!</div>
+  <div id="problem-display"></div>
+</div>
+
+<input id="inputBox" autocomplete="off" autofocus />
+
+<div id="stats">
+  <div class="stat-item"><span class="stat-label">ACCURACY</span><span id="accuracy" class="stat-value">0%</span></div>
+  <div class="stat-item"><span class="stat-label">WPM</span><span id="wpm" class="stat-value">0</span></div>
+  <div class="stat-item"><span class="stat-label">MISTAKES</span><span id="mistakes" class="stat-value">0</span></div>
+</div>
+
+<h3 style="margin-top:40px; color:#555;">VIRTUAL KEYBOARD</h3>
+<div id="keyboard"></div>
+
+<script>
+const keyLayout = [
+  "`", "1","2","3","4","5","6","7","8","9","0","-","=","\\",
+  "!", "@","#","$","%","^","&","*","(",")","_","+","|",
+  "[","]","{","}",";",":","'",'"',",",".","/","<",">","?"
+];
+
+const keyboard = document.getElementById("keyboard");
+keyLayout.forEach(k => {
+  const div = document.createElement("div");
+  div.className = "key";
+  div.dataset.key = k;
+  div.textContent = k;
+  keyboard.appendChild(div);
+});
+
+const pools = {
+  1: "0123456789",
+  2: "!@#$%^&*",
+  3: "()_-+=[]{};:'\",.<>/?\\|",
+  4: "0123456789!@#$%^&*()_-+=[]{};:'\",.<>/?\\|",
+  5: "!@#$%^&*()"
+};
+
+let currentLevel = 1;
+let startTime = null;
+let mistakes = 0;
+let combo = 0;
+let currentIndex = 0;
+let targetText = "";
+
+function setLevel(lv) {
+  currentLevel = lv;
+  document.querySelectorAll(".level-buttons button").forEach(b => b.classList.remove("active-lv"));
+  document.getElementById("btn"+lv).classList.add("active-lv");
+  resetGame();
+}
+
+function resetGame() {
+  targetText = generateSequence(pools[currentLevel], 12);
+  currentIndex = 0;
+  mistakes = 0;
+  combo = 0;
+  startTime = null;
+  inputBox.value = "";
+  renderProblem();
+  updateStats(0, 0, 0);
+  highlightKey(targetText[0]);
+}
+
+function generateSequence(chars, length) {
+  let r = "";
+  for (let i = 0; i < length; i++) r += chars[Math.floor(Math.random() * chars.length)];
+  return r;
+}
+
+function renderProblem() {
+  const display = document.getElementById("problem-display");
+  display.innerHTML = "";
+  [...targetText].forEach((char, i) => {
+    const span = document.createElement("span");
+    span.textContent = char;
+    span.className = "char";
+    if (i === currentIndex) span.classList.add("current");
+    display.appendChild(span);
+  });
+}
+
+function highlightKey(char) {
+  document.querySelectorAll(".key").forEach(k => k.classList.remove("active"));
+  const key = document.querySelector(`.key[data-key="${char}"]`);
+  if (key) key.classList.add("active");
+}
+
+const inputBox = document.getElementById("inputBox");
+const problemContainer = document.getElementById("problem-container");
+const comboFloat = document.getElementById("combo-float");
+
+inputBox.addEventListener("input", (e) => {
+  if (!startTime) startTime = performance.now();
+  
+  const typedChar = e.target.value.slice(-1);
+  const targetChar = targetText[currentIndex];
+  const charElements = document.querySelectorAll(".char");
+
+  if (typedChar === targetChar) {
+    // 성공
+    charElements[currentIndex].classList.add("correct");
+    charElements[currentIndex].classList.remove("current");
+    currentIndex++;
+    combo++;
+    showCombo();
+  } else {
+    // 실패
+    mistakes++;
+    combo = 0;
+    showCombo();
+    charElements[currentIndex].classList.add("wrong");
+    problemContainer.classList.add("shake");
+    setTimeout(() => problemContainer.classList.remove("shake"), 200);
+  }
+
+  if (currentIndex < targetText.length) {
+    charElements[currentIndex].classList.add("current");
+    highlightKey(targetText[currentIndex]);
+  } else {
+    // 문장 완료
+    completeRound();
+  }
+  
+  e.target.value = ""; // 입력창 비우기 (한 글자씩 처리)
+});
+
+function showCombo() {
+  if (combo > 2) {
+    comboFloat.textContent = `${combo} COMBO!`;
+    comboFloat.style.opacity = 1;
+    comboFloat.style.transform = `scale(${1 + combo*0.1})`;
+  } else {
+    comboFloat.style.opacity = 0;
+  }
+}
+
+function completeRound() {
+  const end = performance.now();
+  const sec = (end - startTime) / 1000;
+  const wpm = Math.round((targetText.length / 5) / (sec / 60));
+  const acc = Math.max(0, Math.round(((targetText.length - mistakes) / targetText.length) * 100));
+  
+  updateStats(acc, wpm, mistakes);
+  
+  setTimeout(() => {
+    targetText = generateSequence(pools[currentLevel], 12);
+    currentIndex = 0;
+    startTime = null;
+    renderProblem();
+    highlightKey(targetText[0]);
+  }, 300);
+}
+
+function updateStats(acc, wpm, mis) {
+  document.getElementById("accuracy").textContent = acc + "%";
+  document.getElementById("wpm").textContent = wpm;
+  document.getElementById("mistakes").textContent = mis;
+}
+
+setLevel(1);
+</script>
+</body>
+</html>

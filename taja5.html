@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>네온 타자: 레벨 0 입문 에디션</title>
+<style>
+  /* (기존 스타일 유지) */
+  :root {
+    --bg-color: #1a1a2e; --card-bg: #16213e; --text-color: #e94560;
+    --accent-color: #0f3460; --correct-color: #4cd137; --wrong-color: #e84118;
+    --key-default: #2f3640; --timer-color: #fbc531;
+  }
+  body { font-family: sans-serif; background: var(--bg-color); color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+  .settings-bar { display: flex; gap: 20px; align-items: center; margin-bottom: 20px; background: rgba(255,255,255,0.05); padding: 10px 25px; border-radius: 10px; }
+  .settings-bar input { width: 50px; background: var(--accent-color); border: 1px solid var(--text-color); color: white; text-align: center; }
+  #timer-container { font-size: 2rem; font-weight: bold; color: var(--timer-color); margin-bottom: 10px; }
+  .level-buttons { display: flex; gap: 8px; margin-bottom: 20px; }
+  button { padding: 10px 15px; border: none; border-radius: 8px; background: var(--accent-color); color: white; cursor: pointer; font-weight: bold; }
+  button:disabled { opacity: 0.3; cursor: not-allowed; }
+  button.active-lv { background: var(--text-color); box-shadow: 0 0 15px var(--text-color); }
+  
+  /* 가이드 메시지 스타일 */
+  #finger-guide { font-size: 1.2rem; color: var(--timer-color); margin-bottom: 10px; height: 1.5rem; font-weight: bold; }
+
+  #problem-container { font-size: 38px; font-weight: bold; letter-spacing: 5px; padding: 30px; background: var(--card-bg); border-radius: 15px; margin-bottom: 20px; width: 85%; max-width: 800px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+  .char { color: #555; }
+  .char.correct { color: var(--correct-color); }
+  .char.wrong { color: var(--wrong-color); background: rgba(232, 65, 24, 0.2); }
+  .char.current { border-bottom: 3px solid #fff; }
+  #inputBox { opacity: 0; position: absolute; }
+  #stats { display: flex; gap: 40px; background: var(--card-bg); padding: 15px 40px; border-radius: 50px; }
+  .stat-label { font-size: 11px; color: #888; display: block; }
+  .stat-value { font-size: 20px; font-weight: bold; }
+  #overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 100; flex-direction: column; align-items: center; justify-content: center; }
+  #result-card { background: var(--card-bg); padding: 50px; border-radius: 20px; text-align: center; border: 2px solid var(--text-color); }
+</style>
+</head>
+<body onclick="document.getElementById('inputBox').focus()">
+
+<div class="settings-bar">
+  <span>⏱ 제한 시간: <input type="number" id="timeConfig" value="30"></span>
+  <span>목표: <span id="target-wpm-label">0</span> WPM</span>
+</div>
+
+<div id="timer-container">TIME: <span id="timer">30</span>s</div>
+
+<div id="finger-guide">가이드가 여기에 표시됩니다</div>
+
+<div class="level-buttons">
+  <button onclick="setLevel(0)" id="btn0">Lv.0 입문</button>
+  <button onclick="setLevel(1)" id="btn1">Lv.1 숫자</button>
+  <button onclick="setLevel(2)" id="btn2" disabled>Lv.2</button>
+  <button onclick="setLevel(3)" id="btn3" disabled>Lv.3</button>
+  <button onclick="setLevel(4)" id="btn4" disabled>Lv.4</button>
+  <button onclick="setLevel(5)" id="btn5" disabled>Lv.5</button>
+</div>
+
+<div id="problem-container">
+  <div id="problem-display"></div>
+</div>
+
+<input id="inputBox" autocomplete="off" autofocus />
+
+<div id="stats">
+  <div class="stat-item"><span class="stat-label">ACCURACY</span><span id="accuracy" class="stat-value">0%</span></div>
+  <div class="stat-item"><span class="stat-label">WPM</span><span id="wpm" class="stat-value">0</span></div>
+  <div class="stat-item"><span class="stat-label">MISTAKES</span><span id="mistakes" class="stat-value">0</span></div>
+</div>
+
+<div id="overlay">
+  <div id="result-card">
+    <h2 id="result-title">MISSION COMPLETE!</h2>
+    <p id="final-stats"></p>
+    <button onclick="restartGame()">다시 도전</button>
+    <button id="nextLevelBtn" onclick="goToNextLevel()" style="background:var(--correct-color)">다음 단계로</button>
+  </div>
+</div>
+
+<script>
+// 손가락 매핑 데이터
+const fingerMap = {
+  '1': '왼손 새끼', '2': '왼손 약지', '3': '왼손 중지', '4': '왼손 검지', '5': '왼손 검지',
+  '6': '오른손 검지', '7': '오른손 검지', '8': '오른손 중지', '9': '오른손 약지', '0': '오른손 새끼',
+  'f': '왼손 검지 (기준점)', 'j': '오른손 검지 (기준점)'
+};
+
+const pools = { 
+  0: { chars: "f4f5 j7j8 f3f2 j9j0", type: "pattern", goal: 10 }, // Lv.0 패턴
+  1: { chars: "0123456789", goal: 40 },
+  2: { chars: "!@#$%^&*", goal: 30 },
+  3: { chars: "()_-+=[]{};:'\",.<>/?\\|", goal: 25 },
+  4: { chars: "0123456789!@#$%^&*()_-+=[]{};:'\",.<>/?\\|", goal: 30 },
+  5: { chars: "!@#$%^&*()", goal: 35 }
+};
+
+let currentLevel = 0;
+let unlockedLevel = 1; // 0은 기본 해제
+let timeLeft = 30;
+let timerId = null;
+let isPlaying = false;
+let totalTyped = 0;
+let totalMistakes = 0;
+let currentIndex = 0;
+let targetText = "";
+
+function setLevel(lv) {
+  currentLevel = lv;
+  document.querySelectorAll(".level-buttons button").forEach((b, idx) => {
+    b.classList.toggle("active-lv", (idx) === lv);
+  });
+  document.getElementById("target-wpm-label").textContent = pools[lv].goal;
+  restartGame();
+}
+
+function restartGame() {
+  clearInterval(timerId);
+  document.getElementById("overlay").style.display = "none";
+  isPlaying = false;
+  timeLeft = (currentLevel === 0) ? 999 : parseInt(document.getElementById("timeConfig").value);
+  document.getElementById("timer").textContent = (currentLevel === 0) ? "무제한" : timeLeft;
+  totalTyped = 0; totalMistakes = 0; currentIndex = 0;
+  nextSentence();
+}
+
+function nextSentence() {
+  if (currentLevel === 0) {
+    // Lv.0은 랜덤이 아니라 학습 패턴 제공
+    const patterns = ["f4f4", "j7j7", "f5f5", "j8j8", "f3f3", "j9j9"];
+    targetText = patterns[Math.floor(Math.random() * patterns.length)];
+  } else {
+    targetText = "";
+    const chars = pools[currentLevel].chars;
+    for (let i = 0; i < 12; i++) targetText += chars[Math.floor(Math.random() * chars.length)];
+  }
+  currentIndex = 0;
+  renderProblem();
+  updateGuide();
+}
+
+function renderProblem() {
+  const display = document.getElementById("problem-display");
+  display.innerHTML = "";
+  [...targetText].forEach((char, i) => {
+    const span = document.createElement("span");
+    span.textContent = char; span.className = "char";
+    if (i === currentIndex) span.classList.add("current");
+    display.appendChild(span);
+  });
+}
+
+function updateGuide() {
+  const guide = document.getElementById("finger-guide");
+  const char = targetText[currentIndex];
+  if (currentLevel === 0 && fingerMap[char]) {
+    guide.textContent = `👉 [ ${char} ] 키는 ${fingerMap[char]}로 누르세요!`;
+  } else {
+    guide.textContent = (currentLevel === 0) ? "준비되셨나요?" : "최대한 빠르게!";
+  }
+}
+
+const inputBox = document.getElementById("inputBox");
+inputBox.addEventListener("input", (e) => {
+  if (!isPlaying && currentLevel !== 0) {
+    startTimer();
+    isPlaying = true;
+  }
+  
+  const typedChar = e.target.value.slice(-1).toLowerCase();
+  const targetChar = targetText[currentIndex].toLowerCase();
+
+  if (typedChar === targetChar) {
+    currentIndex++;
+    totalTyped++;
+  } else {
+    totalMistakes++;
+    document.getElementById("problem-container").classList.add("shake");
+    setTimeout(() => document.getElementById("problem-container").classList.remove("shake"), 200);
+  }
+
+  if (currentIndex < targetText.length) {
+    renderProblem();
+    updateGuide();
+  } else {
+    if (currentLevel === 0 && totalTyped >= 20) endGame(); // Lv.0은 20자만 치면 종료
+    else nextSentence();
+  }
+  e.target.value = "";
+  
+  const acc = totalTyped === 0 ? 0 : Math.round(((totalTyped - totalMistakes) / totalTyped) * 100);
+  document.getElementById("accuracy").textContent = acc + "%";
+});
+
+function startTimer() {
+  timerId = setInterval(() => {
+    timeLeft--;
+    document.getElementById("timer").textContent = timeLeft;
+    if (timeLeft <= 0) endGame();
+  }, 1000);
+}
+
+function endGame() {
+  clearInterval(timerId);
+  const acc = totalTyped === 0 ? 0 : Math.round(((totalTyped - totalMistakes) / totalTyped) * 100);
+  const duration = parseInt(document.getElementById("timeConfig").value);
+  const wpm = (currentLevel === 0) ? "-" : Math.round((totalTyped / 5) / (duration / 60));
+  
+  document.getElementById("overlay").style.display = "flex";
+  document.getElementById("final-stats").innerHTML = `정확도: ${acc}% | 속도: ${wpm} WPM`;
+  
+  if (acc >= 90 && (currentLevel === 0 || wpm >= pools[currentLevel].goal)) {
+    document.getElementById("result-title").textContent = "SUCCESS!";
+    if (currentLevel === unlockedLevel - 1) {
+        unlockedLevel++;
+        document.getElementById(`btn${unlockedLevel}`).disabled = false;
+    }
+  } else {
+    document.getElementById("result-title").textContent = "TRY AGAIN!";
+  }
+}
+
+function goToNextLevel() {
+  setLevel(currentLevel + 1);
+}
+
+setLevel(0);
+</script>
+</body>
+</html>

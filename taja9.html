@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>네온 꿀벌 타자: 기호 마스터 에디션</title>
+<style>
+  :root {
+    --bg-color: #0d0d16; --card-bg: #161625; --text-color: #00f2ff;
+    --accent-color: #7000ff; --correct-color: #39ff14; --wrong-color: #ff3131;
+    --timer-color: #fce205; --bee-yellow: #ffd700;
+  }
+  body {
+    font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: #fff;
+    margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+  }
+  nav {
+    width: 100%; background: #1a1a2e; display: flex; justify-content: center;
+    gap: 15px; padding: 12px 0; border-bottom: 2px solid var(--accent-color);
+  }
+  nav button {
+    background: none; border: 1px solid var(--accent-color); color: var(--text-color);
+    padding: 8px 18px; border-radius: 20px; cursor: pointer; transition: 0.3s; font-weight: bold;
+  }
+  nav button.active { background: var(--accent-color); color: #fff; box-shadow: 0 0 15px var(--accent-color); }
+
+  #bee-track {
+    width: 90%; max-width: 850px; height: 60px; background: rgba(255,255,255,0.03);
+    border-radius: 40px; margin: 20px 0; position: relative; border: 1px solid #333;
+  }
+  #hive { position: absolute; left: 15px; top: 15px; font-size: 24px; }
+  #honey-pot { position: absolute; right: 15px; top: 15px; font-size: 24px; }
+  #bee {
+    position: absolute; left: 60px; top: 8px; font-size: 34px;
+    transition: left 0.4s cubic-bezier(0.45, 0.05, 0.55, 0.95);
+    z-index: 10; filter: drop-shadow(0 0 8px var(--bee-yellow));
+  }
+  #active-line {
+    position: absolute; top: 50%; left: 60px; width: 0%;
+    height: 3px; background: linear-gradient(90deg, var(--accent-color), var(--text-color));
+    box-shadow: 0 0 8px var(--text-color); transition: width 0.4s;
+  }
+
+  .container { width: 95%; max-width: 900px; text-align: center; }
+  #level-selector { display: none; justify-content: center; gap: 8px; margin-bottom: 20px; }
+  .lv-btn { padding: 5px 12px; background: #222; border: 1px solid #444; color: #fff; border-radius: 8px; cursor: pointer; font-size: 0.85rem; }
+  .lv-btn.selected { background: var(--text-color); color: #000; font-weight: bold; }
+
+  #display-box {
+    background: var(--card-bg); padding: 35px; border-radius: 20px;
+    margin-bottom: 15px; border: 1px solid #333; position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  }
+  #target-text { min-height: 80px; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; }
+  .char { font-size: 2.8rem; font-weight: bold; color: #333; letter-spacing: 10px; }
+  .char.active { color: #fff; text-shadow: 0 0 20px #fff; border-bottom: 4px solid var(--text-color); }
+  .char.correct { color: var(--correct-color); }
+  .char.wrong { color: var(--wrong-color); background: rgba(255,0,0,0.1); }
+
+  #finger-guide { font-size: 1.25rem; color: var(--timer-color); margin-top: 20px; font-weight: bold; height: 1.6rem; }
+  
+  .dashboard { display: flex; justify-content: center; gap: 15px; margin-bottom: 10px; }
+  .stat-card { background: var(--card-bg); padding: 10px 18px; border-radius: 12px; border: 1px solid #444; min-width: 85px; }
+  .stat-label { font-size: 0.7rem; color: #888; display: block; }
+  .stat-val { font-size: 1.2rem; font-weight: bold; }
+
+  #hiddenInput { position: absolute; opacity: 0; pointer-events: none; }
+  #overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.9); flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
+  
+  .bumble { animation: bumble 1s infinite alternate ease-in-out; }
+  @keyframes bumble { from { transform: rotate(-5deg); } to { transform: rotate(5deg) translateY(-5px); } }
+  .shake { animation: shake 0.2s; }
+  @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+</style>
+</head>
+<body onclick="document.getElementById('hiddenInput').focus()">
+
+<nav>
+  <button id="nav-k" onclick="startKindergarten()">🐝 유치원 정복 (숫자+기호)</button>
+  <button id="nav-p" onclick="switchMode('practice')">⚙️ 자유 연습</button>
+  <button id="nav-g" onclick="switchMode('game')">🏆 타임어택</button>
+</nav>
+
+<div class="container">
+  <div id="bee-track">
+    <div id="hive">🏠</div>
+    <div id="active-line"></div>
+    <div id="bee" class="bumble">🐝</div>
+    <div id="honey-pot">🍯</div>
+  </div>
+
+  <div id="level-selector">
+    <button class="lv-btn selected" onclick="setLv(1)">Lv.1 숫자</button>
+    <button class="lv-btn" onclick="setLv(2)">Lv.2 기호(Left)</button>
+    <button class="lv-btn" onclick="setLv(3)">Lv.3 기호(Right)</button>
+    <button class="lv-btn" onclick="setLv(4)">Lv.4 혼합</button>
+    <button class="lv-btn" onclick="setLv(5)">Lv.5 Shift!!</button>
+  </div>
+
+  <div class="dashboard">
+    <div class="stat-card"><span class="stat-label">TIME</span><span id="timer-val" class="stat-val">--</span></div>
+    <div class="stat-card"><span class="stat-label">WPM</span><span id="wpm-val" class="stat-val">0</span></div>
+    <div class="stat-card"><span class="stat-label">ACC</span><span id="acc-val" class="stat-val">0%</span></div>
+  </div>
+
+  <div id="display-box">
+    <div id="target-text"></div>
+    <div id="finger-guide"></div>
+  </div>
+</div>
+
+<input type="text" id="hiddenInput" autocomplete="off" autofocus>
+
+<div id="overlay">
+  <h1 id="res-title">정복 완료!</h1>
+  <p id="res-stats" style="font-size: 1.4rem; text-align: center; line-height: 1.6;"></p>
+  <button onclick="closeOverlay()" style="padding: 12px 40px; font-size: 1.2rem; cursor: pointer; border-radius: 30px; background: var(--correct-color); color: #000; border: none; font-weight: bold; margin-top: 20px;">다시 도전</button>
+</div>
+
+<script>
+/* --- 유치원 마스터 코스 데이터 --- */
+const KINDER_COURSE = [
+  // 1부: 숫자 기초
+  { p: "f4f", g: "검지: F 위 '4'" }, { p: "f5f", g: "검지: F 위 '5'" },
+  { p: "j7j", g: "검지: J 위 '7'" }, { p: "j6j", g: "검지: J 위 '6'" },
+  { p: "d3d", g: "중지: D 위 '3'" }, { p: "k8k", g: "중지: K 위 '8'" },
+  { p: "s2s", g: "약지: S 위 '2'" }, { p: "l9l", g: "약지: L 위 '9'" },
+  { p: "a1a", g: "새끼: A 위 '1'" }, { p: ";0;", g: "새끼: ; 위 '0'" },
+  // 2부: Shift 조합 기호 (기호 마스터의 시작!)
+  { p: "!@#", g: "오른손 Shift + 왼손 1,2,3" },
+  { p: "$%^", g: "오른손 Shift + 왼손 4,5 / 왼손 Shift + 오른손 6" },
+  { p: "&*(", g: "왼손 Shift + 오른손 7,8,9" },
+  { p: "()", g: "왼손 Shift + 오른손 9, 0 (소괄호)" },
+  // 3부: 특수 문자 열차
+  { p: "-=_", g: "오른손 새끼손가락의 확장" },
+  { p: "[]{}", g: "오른손 새끼: P 옆의 괄호 파티" },
+  { p: ":;\"'", g: "오른손 새끼: 엔터 옆 기호들" },
+  { p: "<>,.", g: "오른손 중지/약지: 아래쪽 꺽쇠" },
+  { p: "/?\\|", g: "오른손 새끼: 최우측 기호들" }
+];
+
+const POOLS = { 
+  1: "0123456789", 2: "!@#$%^&*", 3: "()_-+=[]{};:'\",.<>/?\\|", 
+  4: "0123456789!@#$%^&*()_-+=[]{};:'\",.<>/?\\|", 5: "!@#$%^&*()" 
+};
+
+const FINGER_MAP = {
+  '1':'왼손 새끼', '2':'왼손 약지', '3':'왼손 중지', '4':'왼손 검지', '5':'왼손 검지',
+  '6':'오른손 검지', '7':'오른손 검지', '8':'오른손 중지', '9':'오른손 약지', '0':'오른손 새끼',
+  '!':'오른손 Shift + 왼손 새끼', '@':'오른손 Shift + 왼손 약지', '#':'오른손 Shift + 왼손 중지',
+  '$':'오른손 Shift + 왼손 검지', '%':'오른손 Shift + 왼손 검지', '^':'왼손 Shift + 오른손 검지',
+  '&':'왼손 Shift + 오른손 검지', '*':'왼손 Shift + 오른손 중지', '(':'왼손 Shift + 오른손 약지', ')':'왼손 Shift + 오른손 새끼',
+  '-':'오른손 새끼', '=':'오른손 새끼', '_':'왼손 Shift + 오른손 새끼', '+':'왼손 Shift + 오른손 새끼',
+  '[':'오른손 새끼', ']':'오른손 새끼', '{':'왼손 Shift + 오른손 새끼', '}':'왼손 Shift + 오른손 새끼',
+  ';':'오른손 새끼', ':':'왼손 Shift + 오른손 새끼', "'":'오른손 새끼', '"':'왼손 Shift + 오른손 새끼',
+  ',':'오른손 중지', '.':'오른손 약지', '<':'왼손 Shift + 오른손 중지', '>':'왼손 Shift + 오른손 약지',
+  '/':'오른손 새끼', '?':'왼손 Shift + 오른손 새끼', '\\':'오른손 새끼', '|':'왼손 Shift + 오른손 새끼'
+};
+
+/* --- 시스템 로직 --- */
+let mode = ''; let curLv = 1; let kinderIdx = 0; let curIdx = 0; 
+let targetStr = ""; let typedCount = 0; let mistakeCount = 0; 
+let startTime = null; let timer = null;
+
+function startKindergarten() {
+  mode = 'kinder'; kinderIdx = 0;
+  document.getElementById('level-selector').style.display = 'none';
+  resetStats(); updateNav('nav-k'); loadKinderStep();
+}
+
+function switchMode(newMode) {
+  mode = newMode;
+  document.getElementById('level-selector').style.display = 'flex';
+  resetStats(); updateNav('nav-' + newMode[0]); setLv(curLv);
+}
+
+function setLv(lv) {
+  curLv = lv;
+  document.querySelectorAll('.lv-btn').forEach((btn, idx) => btn.classList.toggle('selected', idx + 1 === lv));
+  generateNewSentence();
+}
+
+function updateNav(id) {
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function resetStats() {
+  clearInterval(timer); startTime = null; timer = null;
+  typedCount = 0; mistakeCount = 0; curIdx = 0;
+  document.getElementById('wpm-val').textContent = '0';
+  document.getElementById('acc-val').textContent = '0%';
+  document.getElementById('timer-val').textContent = (mode === 'game') ? '30' : '--';
+}
+
+function loadKinderStep() {
+  targetStr = KINDER_COURSE[kinderIdx].p;
+  curIdx = 0; renderText();
+}
+
+function generateNewSentence() {
+  const pool = POOLS[curLv];
+  targetStr = "";
+  for(let i=0; i<10; i++) targetStr += pool[Math.floor(Math.random()*pool.length)];
+  curIdx = 0; renderText();
+}
+
+function renderText() {
+  const container = document.getElementById('target-text');
+  container.innerHTML = '';
+  [...targetStr].forEach((c, i) => {
+    const s = document.createElement('span');
+    s.textContent = c; s.className = 'char';
+    if(i === curIdx) s.classList.add('active');
+    if(i < curIdx) s.classList.add('correct');
+    container.appendChild(s);
+  });
+  
+  const guide = document.getElementById('finger-guide');
+  const char = targetStr[curIdx];
+  if(mode === 'kinder') {
+    guide.textContent = `👉 [ ${char} ] : ${FINGER_MAP[char] || '손가락'} (${kinderIdx + 1}/${KINDER_COURSE.length})`;
+  } else {
+    guide.textContent = FINGER_MAP[char] ? `힌트: ${FINGER_MAP[char]}` : "집중해서 타이핑하세요!";
+  }
+  updateBee();
+}
+
+function updateBee() {
+  let progress = (mode === 'kinder') 
+    ? (kinderIdx + (curIdx / targetStr.length)) / KINDER_COURSE.length 
+    : (curIdx / targetStr.length);
+  const trackWidth = document.getElementById('bee-track').offsetWidth - 120;
+  document.getElementById('bee').style.left = (60 + trackWidth * progress) + 'px';
+  document.getElementById('active-line').style.width = (progress * 100) + '%';
+}
+
+document.getElementById('hiddenInput').addEventListener('input', (e) => {
+  const char = e.target.value.slice(-1); // 대소문자 구분을 위해 toLowerCase 제거
+  e.target.value = "";
+  if(!startTime) startTime = Date.now();
+  if(mode === 'game' && !timer) startTimer();
+
+  if(char === targetStr[curIdx]) {
+    curIdx++; typedCount++;
+  } else {
+    mistakeCount++;
+    document.getElementById('display-box').classList.add('shake');
+    setTimeout(()=>document.getElementById('display-box').classList.remove('shake'), 200);
+  }
+
+  const acc = typedCount === 0 ? 0 : Math.round(((typedCount - mistakeCount) / typedCount) * 100);
+  document.getElementById('acc-val').textContent = Math.max(0, acc) + "%";
+  const elapsed = (Date.now() - startTime) / 60000;
+  const wpm = Math.round((typedCount / 5) / elapsed);
+  document.getElementById('wpm-val').textContent = isFinite(wpm) ? wpm : 0;
+
+  if(curIdx >= targetStr.length) {
+    if(mode === 'kinder') {
+      kinderIdx++;
+      if(kinderIdx >= KINDER_COURSE.length) setTimeout(showResult, 400);
+      else setTimeout(loadKinderStep, 100);
+    } else {
+      setTimeout(generateNewSentence, 100);
+    }
+  } else { renderText(); }
+});
+
+function startTimer() {
+  let left = 30;
+  timer = setInterval(() => {
+    left--; document.getElementById('timer-val').textContent = left;
+    if(left <= 0) { clearInterval(timer); showResult(); }
+  }, 1000);
+}
+
+function showResult() {
+  document.getElementById('overlay').style.display = 'flex';
+  const wpm = document.getElementById('wpm-val').textContent;
+  const acc = document.getElementById('acc-val').textContent;
+  document.getElementById('res-title').textContent = (mode==='kinder'?"코스 정복 완료! 🍯":"결과 리포트");
+  document.getElementById('res-stats').innerHTML = `평균 속도: ${wpm} WPM<br>정확도: ${acc}<br>실수: ${mistakeCount}번`;
+}
+
+function closeOverlay() {
+  document.getElementById('overlay').style.display = 'none';
+  if(mode === 'kinder') startKindergarten(); else resetStats();
+}
+
+startKindergarten();
+</script>
+</body>
+</html>

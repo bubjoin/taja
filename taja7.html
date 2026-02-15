@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>네온 타자 마스터: 통합 에디션</title>
+<style>
+  :root {
+    --bg-color: #0d0d16; --card-bg: #161625; --text-color: #00f2ff;
+    --accent-color: #7000ff; --correct-color: #39ff14; --wrong-color: #ff3131;
+    --timer-color: #fce205;
+  }
+  body {
+    font-family: 'Segoe UI', sans-serif; background: var(--bg-color); color: #fff;
+    margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+  }
+
+  /* 네비게이션 상단바 */
+  nav {
+    width: 100%; background: #1a1a2e; display: flex; justify-content: center;
+    gap: 20px; padding: 15px 0; border-bottom: 2px solid var(--accent-color);
+  }
+  nav button {
+    background: none; border: 1px solid var(--accent-color); color: var(--text-color);
+    padding: 8px 20px; border-radius: 20px; cursor: pointer; transition: 0.3s;
+  }
+  nav button.active { background: var(--accent-color); color: #fff; box-shadow: 0 0 15px var(--accent-color); }
+
+  /* 메인 컨테이너 */
+  .container { width: 90%; max-width: 850px; margin-top: 30px; text-align: center; }
+  
+  /* 모드별 섹션 컨트롤 */
+  .mode-section { display: none; }
+  .mode-section.active { display: block; animation: fadeIn 0.5s; }
+
+  /* 공통 스타일 */
+  #display-box {
+    background: var(--card-bg); padding: 40px; border-radius: 20px;
+    margin: 20px 0; border: 1px solid #333; position: relative;
+  }
+  .char { font-size: 3rem; font-weight: bold; color: #444; letter-spacing: 10px; }
+  .char.active { color: #fff; text-shadow: 0 0 15px #fff; border-bottom: 4px solid #fff; }
+  .char.correct { color: var(--correct-color); text-shadow: 0 0 10px var(--correct-color); }
+  .char.wrong { color: var(--wrong-color); background: rgba(255,0,0,0.1); }
+
+  /* 유치원 가이드 */
+  #finger-guide { font-size: 1.2rem; color: var(--timer-color); margin-top: 20px; font-weight: bold; }
+  
+  /* 게임/연습 대시보드 */
+  .dashboard { display: flex; justify-content: center; gap: 30px; margin-bottom: 20px; }
+  .stat-card { background: var(--card-bg); padding: 10px 25px; border-radius: 15px; border: 1px solid #444; }
+  .stat-label { font-size: 0.8rem; color: #888; display: block; }
+  .stat-val { font-size: 1.5rem; font-weight: bold; }
+
+  /* 입력창(숨김) */
+  #hiddenInput { position: absolute; opacity: 0; }
+
+  /* 레벨 버튼 */
+  .lv-btns { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
+  .lv-btns button { padding: 5px 15px; background: #222; border: 1px solid #444; color: #fff; border-radius: 5px; cursor: pointer; }
+  .lv-btns button.selected { border-color: var(--text-color); background: var(--accent-color); }
+
+  /* 팝업 */
+  #overlay {
+    display: none; position: fixed; top:0; left:0; width:100%; height:100%;
+    background: rgba(0,0,0,0.9); flex-direction: column; justify-content: center; align-items: center; z-index: 100;
+  }
+  
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .shake { animation: shake 0.2s; }
+  @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-7px); } 75% { transform: translateX(7px); } }
+</style>
+</head>
+<body onclick="document.getElementById('hiddenInput').focus()">
+
+<nav>
+  <button id="nav-k" onclick="switchMode('kinder')">유치원 모드</button>
+  <button id="nav-p" onclick="switchMode('practice')">연습 모드</button>
+  <button id="nav-g" onclick="switchMode('game')">게임 모드</button>
+</nav>
+
+<div class="container">
+  <div class="dashboard">
+    <div class="stat-card" id="timer-box"><span class="stat-label">TIME</span><span id="timer-val" class="stat-val">--</span></div>
+    <div class="stat-card"><span class="stat-label">WPM</span><span id="wpm-val" class="stat-val">0</span></div>
+    <div class="stat-card"><span class="stat-label">ACC</span><span id="acc-val" class="stat-val">0%</span></div>
+  </div>
+
+  <div id="mode-title" style="color: var(--text-color); font-weight: bold;">모드를 선택하세요</div>
+
+  <div id="display-box">
+    <div id="target-text"></div>
+    <div id="finger-guide"></div>
+  </div>
+
+  <div id="k-steps" class="lv-btns mode-section">
+    <button onclick="loadKStep(1)">1: 검지</button>
+    <button onclick="loadKStep(2)">2: 중지</button>
+    <button onclick="loadKStep(3)">3: 약지</button>
+    <button onclick="loadKStep(4)">4: 새끼</button>
+    <button onclick="loadKStep(5)">5: 통합</button>
+  </div>
+
+  <div id="pg-levels" class="lv-btns mode-section">
+    <button onclick="setLv(1)">Lv.1 숫자</button>
+    <button onclick="setLv(2)">Lv.2 기호(L)</button>
+    <button onclick="setLv(3)">Lv.3 기호(R)</button>
+    <button onclick="setLv(4)">Lv.4 혼합</button>
+    <button onclick="setLv(5)">Lv.5 Shift</button>
+  </div>
+</div>
+
+<input type="text" id="hiddenInput" autocomplete="off" autofocus>
+
+<div id="overlay">
+  <h1 id="res-title">TIME UP!</h1>
+  <p id="res-stats" style="font-size: 1.5rem; text-align: center;"></p>
+  <button onclick="closeOverlay()" style="padding: 10px 30px; font-size: 1.2rem; cursor: pointer;">확인</button>
+</div>
+
+<script>
+/* --- 데이터 구성 --- */
+const K_STEPS = {
+  1: { p: ["f4f", "f5f", "j6j", "j7j"], g: "검지: F, J 기준 위쪽 대각선" },
+  2: { p: ["d3d", "k8k", "3838"], g: "중지: D, K 바로 위" },
+  3: { p: ["s2s", "l9l", "2929"], g: "약지: S, L 바로 위" },
+  4: { p: ["a1a", ";0;", "1010"], g: "새끼: A, ; 바로 위" },
+  5: { p: ["12345", "67890", "f4j7"], g: "통합: 전 구역 복습" }
+};
+const POOLS = {
+  1: "0123456789", 2: "!@#$%^&*", 3: "()_-+=[]{};:'\",.<>/?\\|",
+  4: "0123456789!@#$%^&*()_-+=[]{};:'\",.<>/?\\|", 5: "!@#$%^&*()"
+};
+const FINGER_MAP = {
+  '1':'왼손 새끼', '2':'왼손 약지', '3':'왼손 중지', '4':'왼손 검지', '5':'왼손 검지',
+  '6':'오른손 검지', '7':'오른손 검지', '8':'오른손 중지', '9':'오른손 약지', '0':'오른손 새끼',
+  'f':'왼손 검지(돌기)', 'j':'오른손 검지(돌기)', 'd':'왼손 중지', 'k':'오른손 중지', 's':'왼손 약지', 'l':'오른손 약지', 'a':'왼손 새끼', ';':'오른손 새끼'
+};
+
+/* --- 상태 변수 --- */
+let mode = ''; 
+let curLv = 1;
+let targetStr = "";
+let curIdx = 0;
+let typedCount = 0;
+let mistakeCount = 0;
+let startTime = null;
+let timer = null;
+let timeLimit = 30;
+
+/* --- 공통 기능 --- */
+function switchMode(newMode) {
+  mode = newMode;
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('nav-' + newMode[0]).classList.add('active');
+  
+  // UI 전환
+  document.querySelectorAll('.mode-section').forEach(s => s.classList.remove('active'));
+  document.getElementById('mode-title').textContent = newMode.toUpperCase() + " MODE";
+  
+  if(mode === 'kinder') {
+    document.getElementById('k-steps').classList.add('active');
+    loadKStep(1);
+  } else {
+    document.getElementById('pg-levels').classList.add('active');
+    setLv(1);
+  }
+  resetStats();
+}
+
+function resetStats() {
+  clearInterval(timer);
+  startTime = null;
+  typedCount = 0;
+  mistakeCount = 0;
+  document.getElementById('wpm-val').textContent = '0';
+  document.getElementById('acc-val').textContent = '0%';
+  document.getElementById('timer-val').textContent = (mode === 'game') ? timeLimit : '--';
+}
+
+function renderText() {
+  const container = document.getElementById('target-text');
+  container.innerHTML = '';
+  [...targetStr].forEach((c, i) => {
+    const s = document.createElement('span');
+    s.textContent = c; s.className = 'char';
+    if(i === curIdx) s.classList.add('active');
+    if(i < curIdx) s.classList.add('correct');
+    container.appendChild(s);
+  });
+  
+  // 가이드 업데이트
+  const guide = document.getElementById('finger-guide');
+  if(mode === 'kinder') {
+    const char = targetStr[curIdx].toLowerCase();
+    guide.textContent = `👉 [ ${char.toUpperCase()} ] 키는 ${FINGER_MAP[char] || '손가락'}으로!`;
+  } else {
+    guide.textContent = "";
+  }
+}
+
+/* --- 모드별 로직 --- */
+function loadKStep(step) {
+  curLv = step;
+  const patterns = K_STEPS[step].p;
+  targetStr = patterns[Math.floor(Math.random() * patterns.length)];
+  curIdx = 0;
+  renderText();
+}
+
+function setLv(lv) {
+  curLv = lv;
+  generateSentence();
+}
+
+function generateSentence() {
+  const pool = POOLS[curLv];
+  targetStr = "";
+  for(let i=0; i<12; i++) targetStr += pool[Math.floor(Math.random()*pool.length)];
+  curIdx = 0;
+  renderText();
+}
+
+/* --- 입력 처리 --- */
+document.getElementById('hiddenInput').addEventListener('input', (e) => {
+  const char = e.target.value.slice(-1).toLowerCase();
+  e.target.value = "";
+  
+  if(!startTime && mode === 'game') startTimer();
+  if(!startTime) startTime = Date.now();
+
+  if(char === targetStr[curIdx].toLowerCase()) {
+    curIdx++;
+    typedCount++;
+  } else {
+    mistakeCount++;
+    document.getElementById('display-box').classList.add('shake');
+    setTimeout(()=>document.getElementById('display-box').classList.remove('shake'), 200);
+  }
+
+  // 통계 업데이트
+  const acc = Math.round(((typedCount - mistakeCount) / typedCount) * 100);
+  document.getElementById('acc-val').textContent = Math.max(0, acc) + "%";
+  
+  if(mode !== 'game') {
+    const elapsed = (Date.now() - startTime) / 60000;
+    const wpm = Math.round((typedCount / 5) / elapsed);
+    document.getElementById('wpm-val').textContent = isFinite(wpm) ? wpm : 0;
+  }
+
+  if(curIdx >= targetStr.length) {
+    if(mode === 'kinder') loadKStep(curLv);
+    else generateSentence();
+  } else {
+    renderText();
+  }
+});
+
+function startTimer() {
+  let left = timeLimit;
+  timer = setInterval(() => {
+    left--;
+    document.getElementById('timer-val').textContent = left;
+    if(left <= 0) {
+      clearInterval(timer);
+      showResult();
+    }
+  }, 1000);
+}
+
+function showResult() {
+  const wpm = document.getElementById('wpm-val').textContent;
+  const acc = document.getElementById('acc-val').textContent;
+  document.getElementById('overlay').style.display = 'flex';
+  document.getElementById('res-stats').innerHTML = `속도: ${wpm} WPM | 정확도: ${acc}<br>오타: ${mistakeCount}회`;
+}
+
+function closeOverlay() {
+  document.getElementById('overlay').style.display = 'none';
+  switchMode('game');
+}
+
+// 초기 실행
+switchMode('kinder');
+</script>
+</body>
+</html>
