@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>허니타이핑: 완결판</title>
+<style>
+  :root {
+    --bg-color: #05050a; --card-bg: #10101e; --text-color: #00f2ff;
+    --accent-color: #7000ff; --correct-color: #39ff14; --wrong-color: #ff3131;
+    --timer-color: #fce205; --bee-yellow: #ffd700;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-color); color: #fff;
+    margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center;
+    height: 100vh; overflow: hidden; /* 스크롤 절대 금지 */
+  }
+
+  nav {
+    width: 100%; background: #1a1a2e; display: flex; justify-content: center;
+    gap: 10px; padding: 10px 0; border-bottom: 2px solid var(--accent-color);
+  }
+  nav button {
+    background: none; border: 1px solid var(--accent-color); color: var(--text-color);
+    padding: 8px 20px; border-radius: 20px; cursor: pointer; transition: 0.3s; font-weight: bold;
+  }
+  nav button.active { background: var(--accent-color); color: #fff; box-shadow: 0 0 15px var(--accent-color); }
+
+  .container { 
+    flex: 1; width: 90%; max-width: 900px; display: flex; flex-direction: column; 
+    justify-content: center; align-items: center; padding-bottom: 20px;
+  }
+
+  /* 꿀벌 트랙 */
+  #bee-track {
+    width: 100%; height: 60px; background: rgba(255,255,255,0.02);
+    border-radius: 30px; margin: 15px 0; position: relative; border: 1px solid #333; overflow: hidden;
+  }
+  #hive, #honey-pot { position: absolute; top: 15px; font-size: 24px; z-index: 5; }
+  #hive { left: 20px; } #honey-pot { right: 20px; }
+  #bee {
+    position: absolute; left: 60px; top: 8px; font-size: 34px;
+    transition: left 0.4s cubic-bezier(0.25, 0.1, 0.25, 1); z-index: 10;
+  }
+  #active-line {
+    position: absolute; top: 0; left: 0; width: 0%; height: 100%;
+    background: linear-gradient(90deg, rgba(112,0,255,0.1), rgba(0,242,255,0.1));
+    border-right: 3px solid var(--text-color); transition: width 0.4s;
+  }
+
+  /* 셀렉터 바 */
+  .selector-bar { display: none; justify-content: center; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
+  .sel-btn {
+    padding: 6px 12px; background: #222; border: 1px solid #444; color: #ccc;
+    border-radius: 8px; cursor: pointer; font-size: 0.8rem; transition: 0.2s;
+  }
+  .sel-btn.active { background: var(--text-color); color: #000; font-weight: bold; border-color: var(--text-color); }
+
+  /* 대시보드 */
+  .dashboard { display: flex; justify-content: center; gap: 15px; margin-bottom: 15px; }
+  .stat-card { background: var(--card-bg); padding: 10px 20px; border-radius: 15px; border: 1px solid #333; min-width: 110px; text-align: center; }
+  .stat-label { font-size: 0.7rem; color: #888; display: block; margin-bottom: 4px; font-weight: bold; }
+  .stat-val { font-size: 1.5rem; font-weight: bold; }
+
+  /* 기념 꿀단지 */
+  #collection-shelf { display: flex; justify-content: center; gap: 4px; margin-bottom: 10px; min-height: 30px; }
+  .honey-mark { font-size: 20px; }
+
+  /* 문제 출력 창 */
+  #display-box {
+    width: 100%; background: var(--card-bg); padding: 35px 25px; border-radius: 20px;
+    border: 1px solid #333; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  #target-text { font-size: 2.4rem; font-weight: bold; min-height: 60px; display: flex; justify-content: center; flex-wrap: wrap; }
+  .char { color: #252535; letter-spacing: 4px; transition: 0.1s; position: relative; }
+  .char.space { color: #1a1a2a; } /* 스페이스바 기본 색상 */
+  .char.active { color: #fff; border-bottom: 4px solid var(--text-color); }
+  .char.correct { color: var(--correct-color); }
+  .char.wrong { color: var(--wrong-color); background: rgba(255,0,0,0.1); border-radius: 4px; }
+
+  #finger-guide { font-size: 1.3rem; color: var(--timer-color); margin-top: 25px; font-weight: bold; height: 1.5rem; }
+
+  /* 일체형 축하 레이어 */
+  #celebration-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(16, 16, 30, 0.95); border-radius: 20px;
+    display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 20;
+    border: 2px solid var(--correct-color);
+  }
+  .celeb-title { font-size: 2rem; color: var(--correct-color); font-weight: bold; margin-bottom: 10px; }
+
+  #hiddenInput { position: absolute; opacity: 0; pointer-events: none; }
+  .bumble { animation: bumble 1s infinite alternate ease-in-out; }
+  @keyframes bumble { from { transform: rotate(-5deg); } to { transform: rotate(5deg) translateY(-5px); } }
+</style>
+</head>
+<body onclick="document.getElementById('hiddenInput').focus()">
+
+<nav>
+  <button id="nav-step" onclick="switchMainTab('step')">🛣️ 단계별 마스터</button>
+  <button id="nav-numpad" onclick="switchMainTab('numpad')">⌨️ 숫자 패드</button>
+  <button id="nav-game" onclick="switchMainTab('game')">🏆 타임어택</button>
+</nav>
+
+<div class="container">
+  <div id="bee-track">
+    <div id="hive">🏠</div>
+    <div id="active-line"></div>
+    <div id="bee" class="bumble">🐝</div>
+    <div id="honey-pot">🍯</div>
+  </div>
+
+  <div id="step-selector" class="selector-bar">
+    <button class="sel-btn" onclick="setCourse('alpha-home')">1. 기본(ASDF)</button>
+    <button class="sel-btn" onclick="setCourse('alpha-top')">2. 상단(QWER)</button>
+    <button class="sel-btn" onclick="setCourse('alpha-bot')">3. 하단(ZXCV)</button>
+    <button class="sel-btn" onclick="setCourse('digit')">4. 숫자(1-0)</button>
+    <button class="sel-btn" onclick="setCourse('symbol')">5. 기호(!@#)</button>
+    <button class="sel-btn" onclick="setCourse('full')">🏁 전체 혼합</button>
+  </div>
+
+  <div id="numpad-selector" class="selector-bar">
+    <button class="sel-btn" onclick="setCourse('num-full')">숫자 패드 전체</button>
+  </div>
+
+  <div class="dashboard">
+    <div class="stat-card"><span class="stat-label">REAL-TIME WPM</span><span id="wpm-val" class="stat-val">0</span></div>
+    <div class="stat-card"><span class="stat-label">TIME</span><span id="timer-val" class="stat-val">--</span></div>
+    <div class="stat-card"><span class="stat-label">ACCURACY</span><span id="acc-val" class="stat-val">0%</span></div>
+  </div>
+
+  <div id="collection-shelf"></div>
+
+  <div id="display-box">
+    <div id="target-text"></div>
+    <div id="finger-guide"></div>
+    <div id="celebration-overlay">
+      <div class="celeb-title">🍯 HONEY COLLECTED! 🍯</div>
+      <div id="celeb-stats" style="font-size: 1.2rem; margin-bottom: 15px;"></div>
+      <div style="color: #666;">아무 키나 누르면 다음으로 넘어갑니다</div>
+    </div>
+  </div>
+</div>
+
+<input type="text" id="hiddenInput" autocomplete="off" autofocus>
+
+<script>
+/* --- 완벽한 손가락 맵 데이터 --- */
+const FINGER_MAP = {
+  'q':'왼손 새끼', 'a':'왼손 새끼', 'z':'왼손 새끼', '1':'왼손 새끼', '!':'왼손 새끼 + R-Shift',
+  'w':'왼손 약지', 's':'왼손 약지', 'x':'왼손 약지', '2':'왼손 약지', '@':'왼손 약지 + R-Shift',
+  'e':'왼손 중지', 'd':'왼손 중지', 'c':'왼손 중지', '3':'왼손 중지', '#':'왼손 중지 + R-Shift',
+  'r':'왼손 검지', 'f':'왼손 검지', 'v':'왼손 검지', '4':'왼손 검지', '$':'왼손 검지 + R-Shift',
+  't':'왼손 검지', 'g':'왼손 검지', 'b':'왼손 검지', '5':'왼손 검지', '%':'왼손 검지 + R-Shift',
+  'y':'오른손 검지', 'h':'오른손 검지', 'n':'오른손 검지', '6':'오른손 검지', '^':'오른손 검지 + L-Shift',
+  'u':'오른손 검지', 'j':'오른손 검지', 'm':'오른손 검지', '7':'오른손 검지', '&':'오른손 검지 + L-Shift',
+  'i':'오른손 중지', 'k':'오른손 중지', ',':'오른손 중지', '8':'오른손 중지', '*':'오른손 중지 + L-Shift',
+  'o':'오른손 약지', 'l':'오른손 약지', '.':'오른손 약지', '9':'오른손 약지', '(':'오른손 약지 + L-Shift',
+  'p':'오른손 새끼', ';':'오른손 새끼', '/':'오른손 새끼', '0':'오른손 새끼', ')':'오른손 새끼 + L-Shift',
+  '-':'오른손 새끼', '=':'오른손 새끼', '[':'오른손 새끼', ']':'오른손 새끼', "'":'오른손 새끼',
+  ' ':'양손 엄지 (스페이스)', '·':'양손 엄지 (스페이스)',
+  // 넘패드 (우측 기준)
+  'n1':'패드-약지(1)', 'n2':'패드-중지(2)', 'n3':'패드-검지(3)',
+  'n4':'패드-약지(4)', 'n5':'패드-중지(5)', 'n6':'패드-검지(6)',
+  'n7':'패드-약지(7)', 'n8':'패드-중지(8)', 'n9':'패드-검지(9)', 'n0':'패드-엄지(0)'
+};
+
+const COURSES = {
+  'alpha-home': ["asdf jkl; ", "fads lkj ", "asdfghjkl; "],
+  'alpha-top': ["qwer uiop ", "trew poiu ", "qwertyuiop "],
+  'alpha-bot': ["zxcv m,./ ", "vcxz /.,m ", "zxcvbnm,./ "],
+  'digit': ["12345 67890 ", "192837 4650 "],
+  'symbol': ["!@#$% ^&*() ", "_+{} |:\"<>? "],
+  'full': ["The quick brown fox jumps over the lazy dog.", "Honey Typing is Sweet!", "01234-56789 symbols: @#$"],
+  'num-full': ["7894561230", "123+456-789", "0.123*456"],
+  'game': ["function honey() { return 'sweet'; }", "Stay Hungry, Stay Foolish.", "Life is 10% what happens to you.", "Keep Typing! @2026"]
+};
+
+let activeTab = 'step', activeCourse = 'alpha-home', targetText = "", curIdx = 0;
+let typedTotal = 0, mistakeTotal = 0, startTime = null, timer = null, isFinished = false;
+let keyTimes = [], instantWPM = 0, lastInputTime = Date.now();
+
+function switchMainTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('nav-' + tab).classList.add('active');
+  document.querySelectorAll('.selector-bar').forEach(b => b.style.display = 'none');
+  if (tab !== 'game') document.getElementById(tab + '-selector').style.display = 'flex';
+  setCourse(tab === 'step' ? 'alpha-home' : (tab === 'numpad' ? 'num-full' : 'game'));
+}
+
+function setCourse(id) {
+  activeCourse = id;
+  document.querySelectorAll('.sel-btn').forEach(btn => btn.classList.toggle('active', btn.getAttribute('onclick')?.includes(`'${id}'`)));
+  resetState();
+}
+
+function resetState() {
+  clearInterval(timer); startTime = null; timer = null;
+  typedTotal = 0; mistakeTotal = 0; curIdx = 0; instantWPM = 0; keyTimes = [];
+  document.getElementById('wpm-val').textContent = '0';
+  document.getElementById('acc-val').textContent = '0%';
+  document.getElementById('timer-val').textContent = (activeTab === 'game') ? '30' : '--';
+  document.getElementById('celebration-overlay').style.display = 'none';
+  isFinished = false;
+  nextSentence();
+}
+
+function nextSentence() {
+  const pool = COURSES[activeCourse];
+  targetText = pool[Math.floor(Math.random() * pool.length)];
+  curIdx = 0; renderText();
+}
+
+function renderText() {
+  const box = document.getElementById('target-text');
+  box.innerHTML = '';
+  [...targetText].forEach((c, i) => {
+    const span = document.createElement('span');
+    // 스페이스바를 시각적 기호로 변경
+    span.textContent = (c === ' ') ? '·' : c;
+    span.className = 'char' + (c === ' ' ? ' space' : '');
+    if(i === curIdx) span.classList.add('active');
+    if(i < curIdx) span.classList.add('correct');
+    box.appendChild(span);
+  });
+  updateGuide();
+  updateBee();
+}
+
+function updateGuide() {
+  const guide = document.getElementById('finger-guide');
+  let char = targetText[curIdx]?.toLowerCase();
+  // 넘패드 구분을 위한 로직 (옵션)
+  let lookup = (activeTab === 'numpad') ? 'n' + char : char;
+  guide.textContent = FINGER_MAP[lookup] || FINGER_MAP[char] || "준비!";
+}
+
+function updateBee() {
+  const prog = Math.min(1, curIdx / targetText.length);
+  const trackW = document.getElementById('bee-track').offsetWidth - 120;
+  document.getElementById('bee').style.left = (60 + trackW * prog) + 'px';
+  document.getElementById('active-line').style.width = (prog * 100) + '%';
+}
+
+document.getElementById('hiddenInput').addEventListener('input', (e) => {
+  if (isFinished) { e.target.value = ""; resetState(); return; }
+  const char = e.target.value.slice(-1);
+  e.target.value = "";
+  const now = Date.now(); lastInputTime = now;
+  if(!startTime) startTime = now;
+  if(activeTab === 'game' && !timer) startTimer();
+
+  if(char === targetText[curIdx]) {
+    keyTimes.push(now); if(keyTimes.length > 10) keyTimes.shift();
+    curIdx++; typedTotal++;
+  } else {
+    mistakeTotal++;
+    document.getElementById('display-box').style.animation = 'shake 0.2s';
+    setTimeout(() => document.getElementById('display-box').style.animation = '', 200);
+  }
+
+  const acc = Math.round(((typedTotal - mistakeTotal) / Math.max(1, typedTotal)) * 100);
+  document.getElementById('acc-val').textContent = Math.max(0, acc) + "%";
+  
+  if(curIdx >= targetText.length) {
+    if(activeTab === 'game') nextSentence(); else finishCourse();
+  } else { renderText(); }
+});
+
+function startTimer() {
+  let left = 30;
+  timer = setInterval(() => {
+    left--; document.getElementById('timer-val').textContent = left;
+    if(left <= 0) { clearInterval(timer); finishCourse(); }
+  }, 1000);
+}
+
+function finishCourse() {
+  isFinished = true;
+  document.getElementById('celebration-overlay').style.display = 'flex';
+  document.getElementById('celeb-stats').innerHTML = `WPM: ${document.getElementById('wpm-val').textContent} | 정확도: ${document.getElementById('acc-val').textContent}`;
+  const shelf = document.getElementById('collection-shelf');
+  const jar = document.createElement('span'); jar.className = 'honey-mark'; jar.textContent = '🍯';
+  shelf.appendChild(jar);
+}
+
+// 실시간 WPM 연산
+setInterval(() => {
+  if (isFinished || !startTime) return;
+  const now = Date.now();
+  if (now - lastInputTime > 500) instantWPM *= 0.94;
+  if (keyTimes.length > 1) {
+    const dur = (keyTimes[keyTimes.length - 1] - keyTimes[0]) / 60000;
+    instantWPM = (instantWPM * 0.7) + ((keyTimes.length / 5) / dur * 0.3);
+  }
+  document.getElementById('wpm-val').textContent = Math.round(instantWPM);
+}, 100);
+
+switchMainTab('step');
+</script>
+</body>
+</html>

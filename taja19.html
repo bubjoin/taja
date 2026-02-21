@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<title>Honey Typing: 네온 숫자 & 기호 마스터</title>
+<style>
+  :root {
+    --bg-color: #05050a; --card-bg: #10101e; --text-color: #00f2ff;
+    --accent-color: #7000ff; --correct-color: #39ff14; --wrong-color: #ff3131;
+    --timer-color: #fce205; --bee-yellow: #ffd700;
+    --dim-white: #aaaaaa;
+    --bee-speed: 1s;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-color); color: #fff;
+    margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center;
+    height: 100vh; overflow: hidden;
+  }
+
+  header { width: 100%; text-align: center; padding: 10px 0 5px; }
+  header h1 { margin: 0; font-size: 1.4rem; color: var(--text-color); letter-spacing: 5px; text-shadow: 0 0 10px var(--text-color); }
+
+  nav {
+    width: 100%; background: #1a1a2e; display: flex; justify-content: center;
+    gap: 8px; padding: 8px 0; border-bottom: 2px solid var(--accent-color);
+  }
+  nav button {
+    background: none; border: 1px solid var(--accent-color); color: var(--text-color);
+    padding: 8px 18px; border-radius: 20px; cursor: pointer; transition: 0.3s; font-weight: bold; font-size: 0.9rem;
+  }
+  nav button.active { background: var(--accent-color); color: #fff; box-shadow: 0 0 15px var(--accent-color); }
+
+  .container { 
+    flex: 1; width: 90%; max-width: 900px; display: flex; flex-direction: column; 
+    justify-content: center; align-items: center; padding-bottom: 20px;
+  }
+
+  #bee-track {
+    width: 100%; height: 50px; background: rgba(255,255,255,0.02);
+    border-radius: 25px; margin: 10px 0; position: relative; border: 1px solid #333; overflow: hidden;
+  }
+  #hive, #honey-pot { position: absolute; top: 12px; font-size: 20px; z-index: 5; }
+  #hive { left: 20px; } #honey-pot { right: 20px; }
+  #bee {
+    position: absolute; left: 60px; top: 8px; font-size: 28px;
+    transition: left 0.4s cubic-bezier(0.25, 0.1, 0.25, 1); z-index: 10;
+  }
+  #active-line {
+    position: absolute; top: 0; left: 0; width: 0%; height: 100%;
+    background: linear-gradient(90deg, rgba(112,0,255,0.15), rgba(0,242,255,0.15));
+    border-right: 2px solid var(--text-color); transition: width 0.4s;
+  }
+
+  .selector-bar { display: none; justify-content: center; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .sel-btn {
+    padding: 6px 12px; background: #222; border: 1px solid #444; color: #ccc;
+    border-radius: 8px; cursor: pointer; font-size: 0.8rem; transition: 0.2s;
+  }
+  .sel-btn.active { background: var(--text-color); color: #000; font-weight: bold; border-color: var(--text-color); }
+
+  .dashboard { display: flex; justify-content: center; gap: 15px; margin-bottom: 10px; }
+  .stat-card { background: var(--card-bg); padding: 10px 20px; border-radius: 12px; border: 1px solid #333; min-width: 110px; text-align: center; }
+  .stat-label { font-size: 0.7rem; color: #888; display: block; margin-bottom: 4px; font-weight: bold; }
+  .stat-val { font-size: 1.4rem; font-weight: bold; }
+
+  #collection-shelf { display: flex; justify-content: center; gap: 4px; margin-bottom: 8px; min-height: 28px; }
+  .honey-mark { font-size: 18px; filter: drop-shadow(0 0 5px orange); color: var(--dim-white); font-weight: normal; }
+
+  #display-box {
+    width: 100%; background: var(--card-bg); padding: 40px 30px; border-radius: 25px;
+    border: 1px solid #333; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  #target-text { font-size: 3.5rem; font-weight: bold; min-height: 80px; display: flex; justify-content: center; flex-wrap: wrap; }
+  .char { color: #222233; letter-spacing: 8px; transition: 0.1s; position: relative; border-bottom: 5px solid transparent; }
+  
+  .char.space { color: transparent; min-width: 30px; text-align: center; border-bottom: 4px solid rgba(255,255,255,0.08); }
+  .char.active { color: #fff; border-bottom-color: var(--text-color); }
+  .char.space.active { border-bottom-color: var(--text-color); }
+  .char.correct { color: var(--correct-color); border-bottom-color: transparent; }
+  .char.wrong { color: var(--wrong-color); background: rgba(255,0,0,0.1); border-radius: 5px; }
+
+  #finger-guide { font-size: 1.25rem; color: var(--timer-color); margin-top: 25px; font-weight: bold; height: 1.5rem; text-shadow: 0 0 5px rgba(0,0,0,0.3); }
+
+  #celeb-overlay {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(16, 16, 30, 0.98); border-radius: 25px;
+    display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 20;
+    border: 2px solid var(--correct-color);
+  }
+  .celeb-title { font-size: 2rem; color: var(--correct-color); font-weight: bold; margin-bottom: 12px; }
+
+  #analysis-view { width: 100%; display: none; grid-template-columns: repeat(2, 1fr); gap: 15px; text-align: left; }
+  .analysis-card { background: rgba(255,255,255,0.03); padding: 15px; border-radius: 15px; border: 1px solid #222; }
+  .analysis-title { color: var(--text-color); font-size: 0.8rem; margin-bottom: 8px; font-weight: bold; }
+  .weak-key { display: inline-block; background: var(--wrong-color); color: white; padding: 2px 8px; border-radius: 5px; margin-right: 5px; font-weight: bold; }
+
+  #hiddenInput { position: absolute; opacity: 0; pointer-events: none; }
+  .bumble { animation: bumble 1s infinite alternate ease-in-out; }
+  @keyframes bumble { from { transform: rotate(-5deg); } to { transform: rotate(5deg) translateY(-5px); } }
+  .shake { animation: shake 0.2s; }
+  @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+</style>
+</head>
+<body onclick="document.getElementById('hiddenInput').focus()">
+
+<header>
+  <h1>HONEY TYPING</h1>
+</header>
+
+<nav>
+  <button id="nav-step" onclick="switchMainTab('step')">🛣️ 단계별 마스터</button>
+  <button id="nav-numpad" onclick="switchMainTab('numpad')">⌨️ 숫자 패드</button>
+  <button id="nav-single" onclick="switchMainTab('single')">🎯 키별 집중 훈련</button>
+  <button id="nav-game" onclick="switchMainTab('game')">🏆 타임어택</button>
+  <button id="nav-report" onclick="switchMainTab('report')">📊 분석 리포트</button>
+</nav>
+
+<div class="container">
+  <div id="bee-track">
+    <div id="hive">🏠</div>
+    <div id="active-line"></div>
+    <div id="bee" class="bumble">🐝</div>
+    <div id="honey-pot">🍯</div>
+  </div>
+
+  <div id="step-selector" class="selector-bar">
+    <button class="sel-btn" onclick="setCourse('alpha-home')">1. 기본(ASDF)</button>
+    <button class="sel-btn" onclick="setCourse('alpha-top')">2. 상단(QWER)</button>
+    <button class="sel-btn" onclick="setCourse('alpha-bot')">3. 하단(ZXCV)</button>
+    <button class="sel-btn" onclick="setCourse('digit')">4. 숫자(1-0)</button>
+    <button class="sel-btn" onclick="setCourse('symbol')">5. 기호(!@#)</button>
+    <button class="sel-btn" onclick="setCourse('full')">🏁 전체 혼합</button>
+  </div>
+
+  <div id="numpad-selector" class="selector-bar">
+    <button class="sel-btn" onclick="setCourse('num-full')">숫자 패드 마스터</button>
+  </div>
+
+  <div class="dashboard">
+    <div class="stat-card"><span class="stat-label">REAL-TIME WPM</span><span id="wpm-val" class="stat-val">0</span></div>
+    <div class="stat-card"><span class="stat-label">TIME</span><span id="timer-val" class="stat-val">--</span></div>
+    <div class="stat-card"><span class="stat-label">ACCURACY</span><span id="acc-val" class="stat-val">0%</span></div>
+  </div>
+
+  <div id="collection-shelf"></div>
+
+  <div id="display-box">
+    <div id="typing-view" style="width:100%; text-align:center;">
+        <div id="target-text"></div>
+        <div id="finger-guide"></div>
+    </div>
+    
+    <div id="analysis-view">
+        <div class="analysis-card">
+            <div class="analysis-title">📈 누적 성과</div>
+            <div id="stat-total-chars">총 타수: 0</div>
+            <div id="stat-avg-wpm">평균 속도: 0 WPM</div>
+            <div id="stat-avg-acc">평균 정확도: 0%</div>
+        </div>
+        <div class="analysis-card">
+            <div class="analysis-title">⚠️ 집중 훈련 필요 (가장 많이 틀린 키)</div>
+            <div id="stat-weak-keys">데이터 수집 중...</div>
+        </div>
+        <div class="analysis-card" style="grid-column: span 2;">
+            <div class="analysis-title">🏆 오늘 세션 최고 기록</div>
+            <div id="stat-best-record">아직 기록이 없습니다.</div>
+        </div>
+    </div>
+
+    <div id="celeb-overlay">
+      <div id="celeb-title-text" class="celeb-title">🍯 HONEY COLLECTED! 🍯</div>
+      <div id="celeb-stats" style="font-size: 1.4rem; margin-bottom: 20px;"></div>
+      <div id="celeb-subtext" style="color: #888;">아무 키나 누르면 다음 비행을 시작합니다</div>
+    </div>
+  </div>
+</div>
+
+<input type="text" id="hiddenInput" autocomplete="off" autofocus>
+
+<script>
+let sessionHistory = []; 
+let keyMistakes = {};
+let totalTypedInSession = 0;
+let bestWPM = 0;
+let honeyCount = 0;
+let singleKeyCounter = 0; // 키별 훈련용 카운터
+
+const FINGER_MAP = {
+  'q':'왼손 새끼', 'a':'왼손 새끼', 'z':'왼손 새끼', '1':'왼손 새끼', '!':'L-새끼 + R-Shift',
+  'w':'왼손 약지', 's':'왼손 약지', 'x':'왼손 약지', '2':'왼손 약지', '@':'L-약지 + R-Shift',
+  'e':'왼손 중지', 'd':'왼손 중지', 'c':'왼손 중지', '3':'왼손 중지', '#':'L-중지 + R-Shift',
+  'r':'왼손 검지', 'f':'왼손 검지', 'v':'왼손 검지', '4':'왼손 검지', '$':'L-검지 + R-Shift',
+  't':'왼손 검지', 'g':'왼손 검지', 'b':'왼손 검지', '5':'왼손 검지', '%':'L-검지 + R-Shift',
+  'y':'오른손 검지', 'h':'오른손 검지', 'n':'오른손 검지', '6':'오른손 검지', '^':'R-검지 + L-Shift',
+  'u':'오른손 검지', 'j':'오른손 검지', 'm':'오른손 검지', '7':'오른손 검지', '&':'R-검지 + L-Shift',
+  'i':'오른손 중지', 'k':'오른손 중지', ',':'오른손 중지', '8':'오른손 중지', '*':'R-중지 + L-Shift',
+  'o':'오른손 약지', 'l':'오른손 약지', '.':'오른손 약지', '9':'오른손 약지', '(':'R-약지 + L-Shift',
+  'p':'오른손 새끼', ';':'오른손 새끼', '/':'오른손 새끼', '0':'오른손 새끼', ')':'R-새끼 + L-Shift',
+  '-':'오른손 새끼', '=':'오른손 새끼', '[':'오른손 새끼', ']':'오른손 새끼', "'":'오른손 새끼', '\\':'오른손 새끼',
+  ' ':'양손 엄지 (스페이스)'
+};
+
+const POOLS = {
+  'alpha-home': "asdfjkl; ", 'alpha-top': "qwertyuiop ", 'alpha-bot': "zxcvbnm,./ ",
+  'digit': "1234567890 ", 'symbol': "!@#$%^&*()_+{}|:\"<>? ", 'num-full': "0123456789+-*/.",
+  'all': "abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{};:'\",./<>?\\ "
+};
+
+const SENTENCES = [
+  "The quick brown fox jumps over the lazy dog.",
+  "Honey Typing makes your fingers dance like a bee.",
+  "Stay hungry, stay foolish. - Steve Jobs",
+  "function honeyTyping() { return 'Delicious!'; }",
+  "Life is 10% what happens and 90% how you react.",
+  "Practice makes perfect. Every keystroke counts!",
+  "01234-5678-8910 symbols: @#$ &*!"
+];
+
+let activeTab = 'step', activeCourse = 'alpha-home', targetText = "", curIdx = 0;
+let typedTotal = 0, mistakeTotal = 0, startTime = null, timer = null, isFinished = false;
+let keyTimes = [], instantWPM = 0, lastInputTime = Date.now();
+
+function switchMainTab(tab) {
+  activeTab = tab;
+  hideCelebration();
+  resetState();
+  
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('nav-' + tab).classList.add('active');
+  
+  const typingView = document.getElementById('typing-view');
+  const analysisView = document.getElementById('analysis-view');
+  document.querySelectorAll('.selector-bar').forEach(b => b.style.display = 'none');
+
+  if (tab === 'report') {
+    typingView.style.display = 'none';
+    analysisView.style.display = 'grid';
+    updateAnalysisReport();
+  } else {
+    typingView.style.display = 'block';
+    analysisView.style.display = 'none';
+    if (tab === 'step') document.getElementById('step-selector').style.display = 'flex';
+    if (tab === 'numpad') document.getElementById('numpad-selector').style.display = 'flex';
+    
+    let defaultCourse = tab === 'step' ? 'alpha-home' : (tab === 'numpad' ? 'num-full' : (tab === 'single' ? 'all' : 'game'));
+    setCourse(defaultCourse);
+  }
+}
+
+function setCourse(id) {
+  activeCourse = id;
+  document.querySelectorAll('.sel-btn').forEach(btn => btn.classList.toggle('active', btn.getAttribute('onclick')?.includes(`'${id}'`)));
+  resetState();
+}
+
+function resetState() {
+  clearInterval(timer); startTime = null; timer = null;
+  typedTotal = 0; mistakeTotal = 0; curIdx = 0; instantWPM = 0; keyTimes = []; singleKeyCounter = 0;
+  document.getElementById('wpm-val').textContent = '0';
+  document.getElementById('acc-val').textContent = '0%';
+  document.getElementById('timer-val').textContent = (activeTab === 'game') ? '30' : '--';
+  document.getElementById('celeb-overlay').style.display = 'none';
+  isFinished = false;
+  if (activeTab !== 'report') nextSentence();
+}
+
+function nextSentence() {
+  if (activeTab === 'single') {
+    const pool = POOLS['all'];
+    targetText = pool[Math.floor(Math.random() * pool.length)];
+  } else if (activeCourse === 'game' || activeCourse === 'full') {
+    targetText = SENTENCES[Math.floor(Math.random() * SENTENCES.length)];
+  } else {
+    const pool = POOLS[activeCourse];
+    targetText = "";
+    for(let i=0; i<12; i++) targetText += pool[Math.floor(Math.random() * pool.length)];
+  }
+  curIdx = 0; renderText();
+}
+
+function renderText() {
+  const box = document.getElementById('target-text');
+  box.innerHTML = '';
+  [...targetText].forEach((c, i) => {
+    const span = document.createElement('span');
+    // 공백은 NBSP로 처리하여 너비 확보
+    span.textContent = (c === ' ') ? '\u00A0' : c;
+    span.className = 'char' + (c === ' ' ? ' space' : '');
+    if(i === curIdx) span.classList.add('active');
+    if(i < curIdx) span.classList.add('correct');
+    box.appendChild(span);
+  });
+  updateGuide();
+  updateBee();
+}
+
+function updateGuide() {
+  const guide = document.getElementById('finger-guide');
+  let char = targetText[curIdx]?.toLowerCase();
+  guide.textContent = FINGER_MAP[char] || "영문 모드 확인!";
+}
+
+function updateBee() {
+  let prog = (activeTab === 'single') ? (singleKeyCounter / 20) : (curIdx / targetText.length);
+  prog = Math.min(1, Math.max(0, prog));
+  const trackW = document.getElementById('bee-track').offsetWidth - 120;
+  document.getElementById('bee').style.left = (60 + trackW * prog) + 'px';
+  document.getElementById('active-line').style.width = (prog * 100) + '%';
+}
+
+function addHoneyMark() {
+  // 🎯 키별 집중 훈련 모드에서는 꿀을 주지 않음
+  if (activeTab === 'single') return;
+
+  honeyCount++;
+  const shelf = document.getElementById('collection-shelf');
+  if (honeyCount < 10) {
+    const jar = document.createElement('span');
+    jar.className = 'honey-mark'; jar.textContent = '🍯';
+    shelf.appendChild(jar);
+  } else {
+    shelf.innerHTML = `<span class="honey-mark">🍯 <span style="color:var(--dim-white); font-size:16px;">X</span> ${honeyCount}</span>`;
+  }
+}
+
+function showCelebration() {
+  isFinished = true;
+  addHoneyMark();
+  
+  const finalWpm = parseInt(document.getElementById('wpm-val').textContent);
+  const finalAcc = parseInt(document.getElementById('acc-val').textContent);
+  sessionHistory.push({ wpm: finalWpm, acc: finalAcc, typed: typedTotal });
+  if (finalWpm > bestWPM) bestWPM = finalWpm;
+
+  const zone = document.getElementById('celeb-overlay');
+  const stats = document.getElementById('celeb-stats');
+  const title = document.getElementById('celeb-title-text');
+  const subtext = document.getElementById('celeb-subtext');
+
+  if (activeTab === 'single') {
+    title.textContent = "🎯 DRILL COMPLETE! 🎯";
+    title.style.color = "var(--text-color)";
+    subtext.textContent = "훈련 데이터가 분석 리포트에 반영되었습니다.";
+  } else {
+    title.textContent = "🍯 HONEY COLLECTED! 🍯";
+    title.style.color = "var(--correct-color)";
+    subtext.textContent = "아무 키나 누르면 다음 비행을 시작합니다";
+  }
+
+  stats.innerHTML = `정확도: ${finalAcc}% | 속도: ${finalWpm} WPM`;
+  zone.style.display = 'flex';
+}
+
+function hideCelebration() {
+  isFinished = false;
+  document.getElementById('celeb-overlay').style.display = 'none';
+}
+
+function updateAnalysisReport() {
+    if (sessionHistory.length === 0) return;
+    const totalChars = totalTypedInSession;
+    const avgWpm = Math.round(sessionHistory.reduce((a, b) => a + b.wpm, 0) / sessionHistory.length);
+    const avgAcc = Math.round(sessionHistory.reduce((a, b) => a + b.acc, 0) / sessionHistory.length);
+
+    document.getElementById('stat-total-chars').textContent = `총 타수: ${totalChars}자`;
+    document.getElementById('stat-avg-wpm').textContent = `평균 속도: ${avgWpm} WPM`;
+    document.getElementById('stat-avg-acc').textContent = `평균 정확도: ${avgAcc}%`;
+    document.getElementById('stat-best-record').textContent = `최고 속도: ${bestWPM} WPM (정확도 ${avgAcc}% 세션 기준)`;
+
+    const sortedMistakes = Object.entries(keyMistakes).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const weakKeyBox = document.getElementById('stat-weak-keys');
+    if (sortedMistakes.length > 0) {
+        weakKeyBox.innerHTML = sortedMistakes.map(m => `<span class="weak-key">${m[0].toUpperCase()}</span>`).join(' ');
+    } else {
+        weakKeyBox.textContent = "완벽합니다! 오타가 거의 없네요.";
+    }
+}
+
+document.getElementById('hiddenInput').addEventListener('input', (e) => {
+  if (isFinished) { hideCelebration(); resetState(); return; }
+  const char = e.target.value.slice(-1);
+  e.target.value = "";
+  const now = Date.now(); lastInputTime = now;
+  if(!startTime) startTime = now;
+  if(activeTab === 'game' && !timer) startTimer();
+
+  if(char === targetText[curIdx]) {
+    keyTimes.push(now); if(keyTimes.length > 10) keyTimes.shift();
+    curIdx++; typedTotal++; totalTypedInSession++;
+    
+    if (activeTab === 'single') {
+      singleKeyCounter++;
+      if (singleKeyCounter >= 20) showCelebration();
+      else nextSentence();
+    } else if(curIdx >= targetText.length) {
+      if(activeTab === 'game') nextSentence(); else showCelebration();
+    } else { renderText(); }
+
+  } else {
+    mistakeTotal++;
+    const wrongKey = targetText[curIdx].toLowerCase();
+    keyMistakes[wrongKey] = (keyMistakes[wrongKey] || 0) + 1;
+    document.getElementById('display-box').classList.add('shake');
+    setTimeout(() => document.getElementById('display-box').classList.remove('shake'), 200);
+  }
+
+  const acc = typedTotal === 0 ? 0 : Math.round(((typedTotal - mistakeTotal) / typedTotal) * 100);
+  document.getElementById('acc-val').textContent = acc + "%";
+});
+
+function startTimer() {
+  let left = 30;
+  timer = setInterval(() => {
+    left--; document.getElementById('timer-val').textContent = left;
+    if(left <= 0) { clearInterval(timer); showCelebration(); }
+  }, 1000);
+}
+
+setInterval(() => {
+  if (isFinished || !startTime || activeTab === 'report') return;
+  const now = Date.now();
+  if (now - lastInputTime > 500) instantWPM *= 0.94;
+  if (keyTimes.length > 1) {
+    const dur = (keyTimes[keyTimes.length - 1] - keyTimes[0]) / 60000;
+    instantWPM = (instantWPM * 0.7) + ((keyTimes.length / 5) / dur * 0.3);
+  }
+  document.getElementById('wpm-val').textContent = Math.round(instantWPM);
+}, 100);
+
+switchMainTab('step');
+</script>
+</body>
+</html>
